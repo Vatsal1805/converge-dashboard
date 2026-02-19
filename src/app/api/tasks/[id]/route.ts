@@ -5,8 +5,9 @@ import Task from '@/models/Task';
 import User from '@/models/User';
 import { cookies } from 'next/headers';
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         const cookieStore = await cookies();
         const token = cookieStore.get('auth_token')?.value;
         const session = await verifyToken(token || '');
@@ -20,7 +21,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         const body = await request.json();
         await connectToDatabase();
 
-        const task = await Task.findById(params.id);
+        const task = await Task.findById(id);
         if (!task) {
             return NextResponse.json({ error: 'Task not found' }, { status: 404 });
         }

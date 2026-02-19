@@ -4,8 +4,9 @@ import connectToDatabase from '@/lib/db';
 import Lead from '@/models/Lead';
 import { cookies } from 'next/headers';
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
+        const { id } = await params;
         const cookieStore = await cookies();
         const token = cookieStore.get('auth_token')?.value;
         const session = await verifyToken(token || '');
@@ -17,7 +18,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         const body = await request.json();
         await connectToDatabase();
 
-        const lead = await Lead.findByIdAndUpdate(params.id, body, { new: true });
+        const lead = await Lead.findByIdAndUpdate(id, body, { new: true });
 
         if (!lead) {
             return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
