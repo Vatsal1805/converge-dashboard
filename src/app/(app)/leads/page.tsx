@@ -1,0 +1,399 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+    Target, Plus, Search, Phone, Mail, Building2, 
+    DollarSign, Loader2, MoreHorizontal, ArrowUpRight
+} from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface Lead {
+    _id: string;
+    name: string;
+    company: string;
+    email: string;
+    phone?: string;
+    status: 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost';
+    dealValue: number;
+    dateAdded: string;
+}
+
+const statusConfig = {
+    new: { label: 'New', color: 'bg-slate-100 text-slate-700 border-slate-200' },
+    contacted: { label: 'Contacted', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    qualified: { label: 'Qualified', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    proposal: { label: 'Proposal', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    won: { label: 'Won', color: 'bg-green-100 text-green-700 border-green-200' },
+    lost: { label: 'Lost', color: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+export default function LeadsPage() {
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+
+    const [newLead, setNewLead] = useState({
+        name: '',
+        company: '',
+        email: '',
+        phone: '',
+        dealValue: 0,
+        status: 'new',
+    });
+
+    const fetchLeads = async () => {
+        try {
+            const res = await fetch('/api/leads/list');
+            const data = await res.json();
+            if (data.leads) {
+                setLeads(data.leads);
+            }
+        } catch (err) {
+            console.error('Failed to fetch leads', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchLeads();
+    }, []);
+
+    const handleCreateLead = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        setError('');
+
+        try {
+            const res = await fetch('/api/leads/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...newLead,
+                    dealValue: Number(newLead.dealValue)
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to create lead');
+            }
+
+            setCreateOpen(false);
+            setNewLead({ name: '', company: '', email: '', phone: '', dealValue: 0, status: 'new' });
+            fetchLeads();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleStatusChange = async (leadId: string, newStatus: string) => {
+        try {
+            const res = await fetch(`/api/leads/${leadId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            if (res.ok) {
+                setLeads(leads.map(l => l._id === leadId ? { ...l, status: newStatus as any } : l));
+            }
+        } catch (err) {
+            console.error('Failed to update status', err);
+        }
+    };
+
+    const filteredLeads = leads.filter(lead => {
+        const matchesSearch = 
+            lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            lead.email.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+
+    // Pipeline metrics
+    const pipelineValue = leads.filter(l => !['won', 'lost'].includes(l.status)).reduce((sum, l) => sum + l.dealValue, 0);
+    const wonValue = leads.filter(l => l.status === 'won').reduce((sum, l) => sum + l.dealValue, 0);
+    const activeLeads = leads.filter(l => !['won', 'lost'].includes(l.status)).length;
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Leads & CRM</h2>
+                    <p className="text-muted-foreground">Manage your sales pipeline and customer relationships.</p>
+                </div>
+                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Lead
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <form onSubmit={handleCreateLead}>
+                            <DialogHeader>
+                                <DialogTitle>Add New Lead</DialogTitle>
+                                <DialogDescription>
+                                    Enter the lead details to add them to your pipeline.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="grid gap-4 py-4">
+                                {error && (
+                                    <Alert variant="destructive">
+                                        <AlertDescription>{error}</AlertDescription>
+                                    </Alert>
+                                )}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">Contact Name</Label>
+                                        <Input
+                                            id="name"
+                                            value={newLead.name}
+                                            onChange={e => setNewLead({ ...newLead, name: e.target.value })}
+                                            placeholder="John Doe"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="company">Company</Label>
+                                        <Input
+                                            id="company"
+                                            value={newLead.company}
+                                            onChange={e => setNewLead({ ...newLead, company: e.target.value })}
+                                            placeholder="Acme Corp"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email">Email</Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={newLead.email}
+                                            onChange={e => setNewLead({ ...newLead, email: e.target.value })}
+                                            placeholder="john@acme.com"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone">Phone</Label>
+                                        <Input
+                                            id="phone"
+                                            value={newLead.phone}
+                                            onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
+                                            placeholder="+1 555 000 0000"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dealValue">Deal Value ($)</Label>
+                                        <Input
+                                            id="dealValue"
+                                            type="number"
+                                            value={newLead.dealValue}
+                                            onChange={e => setNewLead({ ...newLead, dealValue: Number(e.target.value) })}
+                                            placeholder="10000"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="status">Status</Label>
+                                        <Select value={newLead.status} onValueChange={v => setNewLead({ ...newLead, status: v })}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="new">New</SelectItem>
+                                                <SelectItem value="contacted">Contacted</SelectItem>
+                                                <SelectItem value="qualified">Qualified</SelectItem>
+                                                <SelectItem value="proposal">Proposal</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button type="submit" disabled={submitting}>
+                                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Add Lead
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Pipeline Value</CardTitle>
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">${pipelineValue.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">{activeLeads} active leads</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Won Deals</CardTitle>
+                        <ArrowUpRight className="h-4 w-4 text-green-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">${wonValue.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">{leads.filter(l => l.status === 'won').length} deals closed</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Leads</CardTitle>
+                        <Target className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">{leads.length}</div>
+                        <p className="text-xs text-muted-foreground">All time</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Leads Table */}
+            <Card>
+                <CardHeader>
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                        <div className="relative w-full max-w-sm">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder="Search leads..."
+                                className="pl-9"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[150px]">
+                                <SelectValue placeholder="Filter status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="new">New</SelectItem>
+                                <SelectItem value="contacted">Contacted</SelectItem>
+                                <SelectItem value="qualified">Qualified</SelectItem>
+                                <SelectItem value="proposal">Proposal</SelectItem>
+                                <SelectItem value="won">Won</SelectItem>
+                                <SelectItem value="lost">Lost</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Contact</TableHead>
+                                <TableHead>Company</TableHead>
+                                <TableHead>Deal Value</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow key="loading">
+                                    <TableCell colSpan={5} className="text-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredLeads.length === 0 ? (
+                                <TableRow key="empty">
+                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                        No leads found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredLeads.map((lead) => (
+                                    <TableRow key={lead._id} className="group">
+                                        <TableCell>
+                                            <div>
+                                                <p className="font-medium">{lead.name}</p>
+                                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                                                    <span className="flex items-center gap-1">
+                                                        <Mail className="h-3 w-3" />
+                                                        {lead.email}
+                                                    </span>
+                                                    {lead.phone && (
+                                                        <span className="flex items-center gap-1">
+                                                            <Phone className="h-3 w-3" />
+                                                            {lead.phone}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                                {lead.company}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="font-medium">${lead.dealValue.toLocaleString()}</span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Select
+                                                defaultValue={lead.status}
+                                                onValueChange={(v) => handleStatusChange(lead._id, v)}
+                                            >
+                                                <SelectTrigger className={`w-[120px] h-8 ${statusConfig[lead.status]?.color}`}>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="new">New</SelectItem>
+                                                    <SelectItem value="contacted">Contacted</SelectItem>
+                                                    <SelectItem value="qualified">Qualified</SelectItem>
+                                                    <SelectItem value="proposal">Proposal</SelectItem>
+                                                    <SelectItem value="won">Won</SelectItem>
+                                                    <SelectItem value="lost">Lost</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                View Details
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
