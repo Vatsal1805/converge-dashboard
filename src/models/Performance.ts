@@ -38,13 +38,12 @@ const PerformanceSchema = new Schema<IPerformance>(
 );
 
 // Calculate overall score before saving
-PerformanceSchema.pre('save', function(next: () => void) {
+PerformanceSchema.pre('save', function() {
     const metrics = this.metrics;
     this.overallScore = Math.round(
         ((metrics.taskCompletion + metrics.quality + metrics.communication + 
           metrics.punctuality + metrics.initiative) / 5) * 10
     );
-    next();
 });
 
 const Performance: Model<IPerformance> = mongoose.models.Performance || mongoose.model<IPerformance>('Performance', PerformanceSchema);
