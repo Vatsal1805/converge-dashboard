@@ -11,7 +11,17 @@ const loginSchema = z.object({
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
+        let body;
+        try {
+            body = await request.json();
+        } catch (parseError) {
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+        }
+
+        if (!body || typeof body !== 'object') {
+            return NextResponse.json({ error: 'Request body is required' }, { status: 400 });
+        }
+
         const { email, password } = loginSchema.parse(body);
 
         await connectToDatabase();
@@ -36,15 +46,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
         }
 
-        // Update last login
-        user.lastLogin = new Date();
-        await user.save();
-
-        const token = await signToken({
+        // Generate token first to reduce perceived latency
+        const tokenPromise = signToken({
             id: user._id.toString(),
             email: user.email,
             role: user.role
         });
+
+        // Update last login (non-blocking for token generation)
+        user.lastLogin = new Date();
+        const savePromise = user.save();
+
+        const [token] = await Promise.all([tokenPromise, savePromise]);
 
         const response = NextResponse.json({
             user: {
@@ -68,7 +81,8 @@ export async function POST(request: Request) {
 
     } catch (error) {
         if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+            const errorMessages = error.issues.map((e: z.ZodIssue) => `${e.path.join('.')}: ${e.message}`).join(', ');
+            return NextResponse.json({ error: `Invalid input: ${errorMessages}` }, { status: 400 });
         }
         console.error('Login error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

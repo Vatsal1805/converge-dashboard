@@ -35,6 +35,10 @@ const ProjectSchema = new Schema<IProject>({
     timestamps: true,
 });
 
+// Indexes for performance
+ProjectSchema.index({ teamLeadId: 1 });
+ProjectSchema.index({ status: 1 });
+
 const Project: Model<IProject> = mongoose.models.Project || mongoose.model<IProject>('Project', ProjectSchema);
 
 export default Project;

@@ -8,11 +8,12 @@ import { verifyToken } from '@/lib/auth';
 
 async function getTeamLeadStats(userId: string) {
     await connectToDatabase();
-    // Team Lead sees projects they lead
-    const myProjects = await Project.countDocuments({ teamLeadId: userId, status: 'active' });
-    // And tasks? Maybe total tasks in system or tasks assigned to them?
-    // Let's show global active tasks for now as "Team Load"
-    const activeTasks = await Task.countDocuments({ status: { $in: ['todo', 'in_progress'] } });
+
+    // FETCH DATA IN PARALLEL
+    const [myProjects, activeTasks] = await Promise.all([
+        Project.countDocuments({ teamLeadId: userId, status: 'active' }),
+        Task.countDocuments({ status: { $in: ['todo', 'in_progress'] } })
+    ]);
 
     return { myProjects, activeTasks };
 }

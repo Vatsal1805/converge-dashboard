@@ -10,12 +10,15 @@ import Lead from '@/models/Lead';
 
 async function getStats() {
     await connectToDatabase();
-    const totalUsers = await User.countDocuments();
-    const totalProjects = await Project.countDocuments({ status: 'active' });
-    const activeTasks = await Task.countDocuments({ status: { $in: ['todo', 'in_progress', 'review'] } });
 
-    // Calculate revenue from WON leads
-    const wonLeads = await Lead.find({ status: 'won' });
+    // FETCH DATA IN PARALLEL
+    const [totalUsers, totalProjects, activeTasks, wonLeads] = await Promise.all([
+        User.countDocuments(),
+        Project.countDocuments({ status: 'active' }),
+        Task.countDocuments({ status: { $in: ['todo', 'in_progress', 'review'] } }),
+        Lead.find({ status: 'won' })
+    ]);
+
     const revenue = wonLeads.reduce((acc, lead) => acc + (lead.dealValue || 0), 0);
 
     return { totalUsers, totalProjects, activeTasks, revenue };

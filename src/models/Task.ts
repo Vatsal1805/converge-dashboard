@@ -47,6 +47,12 @@ const TaskSchema = new Schema<ITask>({
     timestamps: true,
 });
 
+// Indexes for performance optimization
+TaskSchema.index({ assignedTo: 1, status: 1 });
+TaskSchema.index({ deadline: 1 });
+TaskSchema.index({ projectId: 1 });
+TaskSchema.index({ createdBy: 1 });
+
 const Task: Model<ITask> = mongoose.models.Task || mongoose.model<ITask>('Task', TaskSchema);
 
 export default Task;

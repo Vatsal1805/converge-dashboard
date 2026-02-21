@@ -8,10 +8,14 @@ import { verifyToken } from '@/lib/auth';
 
 async function getInternStats(userId: string) {
     await connectToDatabase();
-    const myTasks = await Task.countDocuments({ assignedTo: userId, status: { $in: ['todo', 'in_progress'] } });
-    const completedTasks = await Task.countDocuments({ assignedTo: userId, status: 'completed' });
 
-    const user = await User.findById(userId).select('performanceScore');
+    // FETCH DATA IN PARALLEL
+    const [myTasks, completedTasks, user] = await Promise.all([
+        Task.countDocuments({ assignedTo: userId, status: { $in: ['todo', 'in_progress'] } }),
+        Task.countDocuments({ assignedTo: userId, status: 'completed' }),
+        User.findById(userId).select('performanceScore')
+    ]);
+
     const score = user ? user.performanceScore : 0;
 
     return { myTasks, completedTasks, score };
