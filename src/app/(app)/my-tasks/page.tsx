@@ -23,7 +23,7 @@ interface Task {
     projectId: { _id: string; name: string; clientName?: string } | null;
     assignedTo: { _id: string; name: string; email: string } | null;
     priority: 'low' | 'medium' | 'high';
-    status: 'todo' | 'in_progress' | 'review' | 'completed' | 'rejected';
+    status: 'not_started' | 'in_progress' | 'working' | 'on_hold' | 'under_review' | 'completed';
     internStatus?: 'not_started' | 'started' | 'issue' | 'emergency' | 'other';
     internNote?: string;
     deadline: string;
@@ -113,7 +113,7 @@ export default function MyTasksPage() {
             case 'rejected':
                 return <Badge variant="destructive">Rejected</Badge>;
             default:
-                return <Badge variant="outline">To Do</Badge>;
+                return <Badge variant="outline">Not Started</Badge>;
         }
     };
 
@@ -145,9 +145,9 @@ export default function MyTasksPage() {
     };
 
     // Group tasks by status
-    const todoTasks = tasks.filter(t => t.status === 'todo');
+    const todoTasks = tasks.filter(t => t.status === 'not_started');
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-    const reviewTasks = tasks.filter(t => t.status === 'review');
+    const reviewTasks = tasks.filter(t => t.status === 'under_review');
     const completedTasks = tasks.filter(t => t.status === 'completed');
 
     if (loading) {
@@ -268,6 +268,7 @@ export default function MyTasksPage() {
                                                 size="sm"
                                                 onClick={() => handleOpenUpdate(task)}
                                                 disabled={task.status === 'completed'}
+                                                className="text-black hover:text-black"
                                             >
                                                 Update Status
                                             </Button>
@@ -343,10 +344,10 @@ export default function MyTasksPage() {
                     </div>
 
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setUpdateOpen(false)}>
+                        <Button variant="outline" onClick={() => setUpdateOpen(false)} className="text-black hover:text-black">
                             Cancel
                         </Button>
-                        <Button onClick={handleUpdateStatus} disabled={submitting}>
+                        <Button onClick={handleUpdateStatus} disabled={submitting} className="text-black hover:text-black">
                             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save
                         </Button>

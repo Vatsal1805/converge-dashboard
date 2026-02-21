@@ -12,7 +12,7 @@ async function getTeamLeadStats(userId: string) {
     // FETCH DATA IN PARALLEL
     const [myProjects, activeTasks] = await Promise.all([
         Project.countDocuments({ teamLeadId: userId, status: 'active' }),
-        Task.countDocuments({ status: { $in: ['todo', 'in_progress'] } })
+        Task.countDocuments({ status: { $in: ['not_started', 'in_progress'] } })
     ]);
 
     return { myProjects, activeTasks };

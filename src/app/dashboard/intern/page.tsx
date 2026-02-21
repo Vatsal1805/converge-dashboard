@@ -9,11 +9,14 @@ import { verifyToken } from '@/lib/auth';
 async function getInternStats(userId: string) {
     await connectToDatabase();
 
+    const mongoose = require('mongoose');
+    const objectId = new mongoose.Types.ObjectId(userId);
+
     // FETCH DATA IN PARALLEL
     const [myTasks, completedTasks, user] = await Promise.all([
-        Task.countDocuments({ assignedTo: userId, status: { $in: ['todo', 'in_progress'] } }),
-        Task.countDocuments({ assignedTo: userId, status: 'completed' }),
-        User.findById(userId).select('performanceScore')
+        Task.countDocuments({ assignedTo: objectId, status: { $in: ['not_started', 'in_progress', 'working'] } }),
+        Task.countDocuments({ assignedTo: objectId, status: 'completed' }),
+        User.findById(objectId).select('performanceScore')
     ]);
 
     const score = user ? user.performanceScore : 0;

@@ -9,8 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-    Settings, User, Bell, Shield, Palette, Globe, 
+import {
+    Settings, User, Bell, Shield, Palette, Globe,
     Mail, Key, Smartphone, Moon, Sun, Save, Loader2
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -234,11 +234,10 @@ export default function SettingsPage() {
                                     <button
                                         key={theme}
                                         onClick={() => setAppearance({ ...appearance, theme })}
-                                        className={`p-4 rounded-lg border-2 transition-all ${
-                                            appearance.theme === theme 
-                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                                        className={`p-4 rounded-lg border-2 transition-all ${appearance.theme === theme
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                                                 : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                                        }`}
+                                            }`}
                                     >
                                         <div className="flex flex-col items-center gap-2">
                                             {theme === 'light' && <Sun className="h-6 w-6" />}
@@ -292,7 +291,7 @@ export default function SettingsPage() {
                                 <Label htmlFor="confirm-password">Confirm New Password</Label>
                                 <Input id="confirm-password" type="password" />
                             </div>
-                            <Button>Update Password</Button>
+                            <Button className="text-black hover:text-black">Update Password</Button>
                         </CardContent>
                     </Card>
 
@@ -312,7 +311,7 @@ export default function SettingsPage() {
                                         <p className="text-sm text-muted-foreground">Not configured</p>
                                     </div>
                                 </div>
-                                <Button variant="outline">Setup</Button>
+                                <Button variant="outline" className="text-black hover:text-black">Setup</Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -321,7 +320,7 @@ export default function SettingsPage() {
 
             {/* Save Button */}
             <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={saving}>
+                <Button onClick={handleSave} disabled={saving} className="text-black hover:text-black">
                     {saving ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

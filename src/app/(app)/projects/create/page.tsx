@@ -41,19 +41,29 @@ export default function CreateProjectPage() {
         // Fetch users to populate Team Lead select
         // Need an endpoint for list users. We have /api/users/list.
         // It returns all users. We filter for team leads.
-        const fetchUsers = async () => {
+        const fetchData = async () => {
             try {
-                const res = await fetch('/api/users/list');
-                const data = await res.json();
-                if (data.users) {
-                    const leads = data.users.filter((u: any) => u.role === 'teamlead');
+                const [usersRes, userRes] = await Promise.all([
+                    fetch('/api/users/list'),
+                    fetch('/api/auth/me')
+                ]);
+                const usersData = await usersRes.json();
+                const userData = await userRes.json();
+
+                if (userData.user && userData.user.role === 'intern') {
+                    router.push('/dashboard/intern');
+                    return;
+                }
+
+                if (usersData.users) {
+                    const leads = usersData.users.filter((u: any) => u.role === 'teamlead');
                     setTeamLeads(leads);
                 }
             } catch (err) {
-                console.error('Failed to fetch users', err);
+                console.error('Failed to fetch data', err);
             }
         };
-        fetchUsers();
+        fetchData();
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -194,8 +204,8 @@ export default function CreateProjectPage() {
                         </div>
 
                         <div className="flex justify-end gap-4">
-                            <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-                            <Button type="submit" disabled={loading}>
+                            <Button type="button" variant="outline" onClick={() => router.back()} className="text-black hover:text-black">Cancel</Button>
+                            <Button type="submit" disabled={loading} className="text-black hover:text-black">
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Create Project
                             </Button>

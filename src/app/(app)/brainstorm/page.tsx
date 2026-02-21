@@ -43,9 +43,8 @@ export default function BrainstormPage() {
         try {
             const res = await fetch('/api/brainstorm/list');
             const data = await res.json();
-            if (data.posts) {
-                setPosts(data.posts);
-            }
+            const postsList = Array.isArray(data) ? data : (data.posts || []);
+            setPosts(postsList);
         } catch (err) {
             console.error('Failed to fetch posts', err);
         } finally {
@@ -55,7 +54,7 @@ export default function BrainstormPage() {
 
     const handleCreatePost = async () => {
         if (!newPost.trim()) return;
-        
+
         setPosting(true);
         try {
             const tags = newTags.split(',').map(t => t.trim()).filter(Boolean);
@@ -94,7 +93,7 @@ export default function BrainstormPage() {
 
     const handleComment = async (postId: string) => {
         if (!commentText.trim()) return;
-        
+
         try {
             const res = await fetch(`/api/brainstorm/${postId}`, {
                 method: 'POST',
@@ -151,7 +150,7 @@ export default function BrainstormPage() {
                                 className="flex-1"
                             />
                         </div>
-                        <Button onClick={handleCreatePost} disabled={posting || !newPost.trim()}>
+                        <Button onClick={handleCreatePost} disabled={posting || !newPost.trim()} className="text-black hover:text-black">
                             {posting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                             Post
                         </Button>
@@ -210,7 +209,7 @@ export default function BrainstormPage() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => handleLike(post._id)}
-                                        className="gap-2"
+                                        className="gap-2 text-black hover:text-black"
                                     >
                                         <Heart className={`h-4 w-4 ${post.likes.length > 0 ? 'fill-red-500 text-red-500' : ''}`} />
                                         {post.likes.length}
@@ -219,7 +218,7 @@ export default function BrainstormPage() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => setCommentingOn(commentingOn === post._id ? null : post._id)}
-                                        className="gap-2"
+                                        className="gap-2 text-black hover:text-black"
                                     >
                                         <MessageCircle className="h-4 w-4" />
                                         {post.comments.length}
@@ -252,7 +251,7 @@ export default function BrainstormPage() {
                                             onChange={(e) => setCommentText(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleComment(post._id)}
                                         />
-                                        <Button size="sm" onClick={() => handleComment(post._id)}>
+                                        <Button size="sm" onClick={() => handleComment(post._id)} className="text-black hover:text-black">
                                             <Send className="h-4 w-4" />
                                         </Button>
                                     </div>

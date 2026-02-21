@@ -116,7 +116,7 @@ export function AppSidebar({ user }: AppSidebarProps) {
                     variant="ghost"
                     size="sm"
                     onClick={() => setCollapsed(!collapsed)}
-                    className={cn('w-full text-slate-400 hover:text-slate-200 hover:bg-slate-800', collapsed && 'px-0')}
+                    className={cn('w-full text-black hover:text-black hover:bg-slate-800', collapsed && 'px-0')}
                 >
                     {collapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4 mr-2" /><span>Collapse Sidebar</span></>}
                 </Button>

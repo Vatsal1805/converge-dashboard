@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,8 +13,8 @@ import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-    Target, Plus, Search, Phone, Mail, Building2, 
+import {
+    Target, Plus, Search, Phone, Mail, Building2,
     DollarSign, Loader2, MoreHorizontal, ArrowUpRight
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -39,6 +40,7 @@ const statusConfig = {
 };
 
 export default function LeadsPage() {
+    const router = useRouter();
     const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
     const [createOpen, setCreateOpen] = useState(false);
@@ -46,6 +48,7 @@ export default function LeadsPage() {
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [currentUser, setCurrentUser] = useState<{ role: string } | null>(null);
 
     const [newLead, setNewLead] = useState({
         name: '',
@@ -56,22 +59,32 @@ export default function LeadsPage() {
         status: 'new',
     });
 
-    const fetchLeads = async () => {
+    const fetchData = async () => {
         try {
-            const res = await fetch('/api/leads/list');
-            const data = await res.json();
-            if (data.leads) {
-                setLeads(data.leads);
+            const [leadsRes, userRes] = await Promise.all([
+                fetch('/api/leads/list'),
+                fetch('/api/auth/me')
+            ]);
+            const leadsData = await leadsRes.json();
+            const userData = await userRes.json();
+
+            const leadsList = Array.isArray(leadsData) ? leadsData : (leadsData.leads || []);
+            setLeads(leadsList);
+            if (userData.user) {
+                setCurrentUser(userData.user);
+                if (userData.user.role === 'intern') {
+                    router.push('/dashboard/intern');
+                }
             }
         } catch (err) {
-            console.error('Failed to fetch leads', err);
+            console.error('Failed to fetch data', err);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchLeads();
+        fetchData();
     }, []);
 
     const handleCreateLead = async (e: React.FormEvent) => {
@@ -97,7 +110,7 @@ export default function LeadsPage() {
 
             setCreateOpen(false);
             setNewLead({ name: '', company: '', email: '', phone: '', dealValue: 0, status: 'new' });
-            fetchLeads();
+            fetchData();
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -121,7 +134,7 @@ export default function LeadsPage() {
     };
 
     const filteredLeads = leads.filter(lead => {
-        const matchesSearch = 
+        const matchesSearch =
             lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             lead.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
             lead.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -139,112 +152,115 @@ export default function LeadsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Leads & CRM</h2>
-                    <p className="text-muted-foreground">Manage your sales pipeline and customer relationships.</p>
+                    <h2 className="text-3xl font-bold tracking-tight text-black">Leads & CRM</h2>
+                    <p className="text-slate-600">Manage your sales pipeline and customer relationships.</p>
                 </div>
-                <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                    <DialogTrigger asChild>
-                        <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Lead
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px]">
-                        <form onSubmit={handleCreateLead}>
-                            <DialogHeader>
-                                <DialogTitle>Add New Lead</DialogTitle>
-                                <DialogDescription>
-                                    Enter the lead details to add them to your pipeline.
-                                </DialogDescription>
-                            </DialogHeader>
 
-                            <div className="grid gap-4 py-4">
-                                {error && (
-                                    <Alert variant="destructive">
-                                        <AlertDescription>{error}</AlertDescription>
-                                    </Alert>
-                                )}
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="name">Contact Name</Label>
-                                        <Input
-                                            id="name"
-                                            value={newLead.name}
-                                            onChange={e => setNewLead({ ...newLead, name: e.target.value })}
-                                            placeholder="John Doe"
-                                            required
-                                        />
+                {(currentUser?.role === 'founder' || currentUser?.role === 'teamlead') && (
+                    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="text-black hover:text-black">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Lead
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[500px]">
+                            <form onSubmit={handleCreateLead}>
+                                <DialogHeader>
+                                    <DialogTitle>Add New Lead</DialogTitle>
+                                    <DialogDescription>
+                                        Enter the lead details to add them to your pipeline.
+                                    </DialogDescription>
+                                </DialogHeader>
+
+                                <div className="grid gap-4 py-4">
+                                    {error && (
+                                        <Alert variant="destructive">
+                                            <AlertDescription>{error}</AlertDescription>
+                                        </Alert>
+                                    )}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name">Contact Name</Label>
+                                            <Input
+                                                id="name"
+                                                value={newLead.name}
+                                                onChange={e => setNewLead({ ...newLead, name: e.target.value })}
+                                                placeholder="John Doe"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="company">Company</Label>
+                                            <Input
+                                                id="company"
+                                                value={newLead.company}
+                                                onChange={e => setNewLead({ ...newLead, company: e.target.value })}
+                                                placeholder="Acme Corp"
+                                                required
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="company">Company</Label>
-                                        <Input
-                                            id="company"
-                                            value={newLead.company}
-                                            onChange={e => setNewLead({ ...newLead, company: e.target.value })}
-                                            placeholder="Acme Corp"
-                                            required
-                                        />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email">Email</Label>
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                value={newLead.email}
+                                                onChange={e => setNewLead({ ...newLead, email: e.target.value })}
+                                                placeholder="john@acme.com"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="phone">Phone</Label>
+                                            <Input
+                                                id="phone"
+                                                value={newLead.phone}
+                                                onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
+                                                placeholder="+1 555 000 0000"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="dealValue">Deal Value ($)</Label>
+                                            <Input
+                                                id="dealValue"
+                                                type="number"
+                                                value={newLead.dealValue}
+                                                onChange={e => setNewLead({ ...newLead, dealValue: Number(e.target.value) })}
+                                                placeholder="10000"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="status">Status</Label>
+                                            <Select value={newLead.status} onValueChange={v => setNewLead({ ...newLead, status: v })}>
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="new">New</SelectItem>
+                                                    <SelectItem value="contacted">Contacted</SelectItem>
+                                                    <SelectItem value="qualified">Qualified</SelectItem>
+                                                    <SelectItem value="proposal">Proposal</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email">Email</Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            value={newLead.email}
-                                            onChange={e => setNewLead({ ...newLead, email: e.target.value })}
-                                            placeholder="john@acme.com"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="phone">Phone</Label>
-                                        <Input
-                                            id="phone"
-                                            value={newLead.phone}
-                                            onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
-                                            placeholder="+1 555 000 0000"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="dealValue">Deal Value ($)</Label>
-                                        <Input
-                                            id="dealValue"
-                                            type="number"
-                                            value={newLead.dealValue}
-                                            onChange={e => setNewLead({ ...newLead, dealValue: Number(e.target.value) })}
-                                            placeholder="10000"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="status">Status</Label>
-                                        <Select value={newLead.status} onValueChange={v => setNewLead({ ...newLead, status: v })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="new">New</SelectItem>
-                                                <SelectItem value="contacted">Contacted</SelectItem>
-                                                <SelectItem value="qualified">Qualified</SelectItem>
-                                                <SelectItem value="proposal">Proposal</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button type="submit" disabled={submitting}>
-                                    {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Add Lead
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                                <DialogFooter>
+                                    <Button type="submit" disabled={submitting} className="text-black hover:text-black">
+                                        {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Add Lead
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             {/* Metrics */}
@@ -255,8 +271,8 @@ export default function LeadsPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">${pipelineValue.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">{activeLeads} active leads</p>
+                        <div className="text-2xl font-bold text-black">${pipelineValue.toLocaleString()}</div>
+                        <p className="text-xs text-slate-500">{activeLeads} active leads</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -265,8 +281,8 @@ export default function LeadsPage() {
                         <ArrowUpRight className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">${wonValue.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">{leads.filter(l => l.status === 'won').length} deals closed</p>
+                        <div className="text-2xl font-bold text-black">${wonValue.toLocaleString()}</div>
+                        <p className="text-xs text-slate-500">{leads.filter(l => l.status === 'won').length} deals closed</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -275,8 +291,8 @@ export default function LeadsPage() {
                         <Target className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{leads.length}</div>
-                        <p className="text-xs text-muted-foreground">All time</p>
+                        <div className="text-2xl font-bold text-black">{leads.length}</div>
+                        <p className="text-xs text-slate-500">All time</p>
                     </CardContent>
                 </Card>
             </div>
@@ -315,22 +331,22 @@ export default function LeadsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Contact</TableHead>
-                                <TableHead>Company</TableHead>
-                                <TableHead>Deal Value</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-black font-bold">Contact</TableHead>
+                                <TableHead className="text-black font-bold">Company</TableHead>
+                                <TableHead className="text-black font-bold">Deal Value</TableHead>
+                                <TableHead className="text-black font-bold">Status</TableHead>
+                                <TableHead className="text-right text-black font-bold">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow key="loading">
+                                <TableRow>
                                     <TableCell colSpan={5} className="text-center py-8">
                                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : filteredLeads.length === 0 ? (
-                                <TableRow key="empty">
+                                <TableRow>
                                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                         No leads found.
                                     </TableCell>
@@ -340,15 +356,15 @@ export default function LeadsPage() {
                                     <TableRow key={lead._id} className="group">
                                         <TableCell>
                                             <div>
-                                                <p className="font-medium">{lead.name}</p>
-                                                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                                                <p className="font-semibold text-black">{lead.name}</p>
+                                                <div className="flex items-center gap-3 text-xs text-slate-700 mt-1">
                                                     <span className="flex items-center gap-1">
-                                                        <Mail className="h-3 w-3" />
+                                                        <Mail className="h-3 w-3 text-slate-400" />
                                                         {lead.email}
                                                     </span>
                                                     {lead.phone && (
                                                         <span className="flex items-center gap-1">
-                                                            <Phone className="h-3 w-3" />
+                                                            <Phone className="h-3 w-3 text-slate-400" />
                                                             {lead.phone}
                                                         </span>
                                                     )}
@@ -356,34 +372,45 @@ export default function LeadsPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                            <div className="flex items-center gap-2 text-black">
+                                                <Building2 className="h-4 w-4 text-slate-400" />
                                                 {lead.company}
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="font-medium">${lead.dealValue.toLocaleString()}</span>
+                                            <span className="font-bold text-black">${lead.dealValue.toLocaleString()}</span>
                                         </TableCell>
                                         <TableCell>
-                                            <Select
-                                                defaultValue={lead.status}
-                                                onValueChange={(v) => handleStatusChange(lead._id, v)}
-                                            >
-                                                <SelectTrigger className={`w-[120px] h-8 ${statusConfig[lead.status]?.color}`}>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="new">New</SelectItem>
-                                                    <SelectItem value="contacted">Contacted</SelectItem>
-                                                    <SelectItem value="qualified">Qualified</SelectItem>
-                                                    <SelectItem value="proposal">Proposal</SelectItem>
-                                                    <SelectItem value="won">Won</SelectItem>
-                                                    <SelectItem value="lost">Lost</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            {(currentUser?.role === 'founder' || currentUser?.role === 'teamlead') ? (
+                                                <Select
+                                                    defaultValue={lead.status}
+                                                    onValueChange={(v) => handleStatusChange(lead._id, v)}
+                                                >
+                                                    <SelectTrigger className={`w-[120px] h-8 ${statusConfig[lead.status]?.color}`}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="new">New</SelectItem>
+                                                        <SelectItem value="contacted">Contacted</SelectItem>
+                                                        <SelectItem value="qualified">Qualified</SelectItem>
+                                                        <SelectItem value="proposal">Proposal</SelectItem>
+                                                        <SelectItem value="won">Won</SelectItem>
+                                                        <SelectItem value="lost">Lost</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <Badge variant="outline" className={statusConfig[lead.status]?.color}>
+                                                    {statusConfig[lead.status]?.label}
+                                                </Badge>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity text-black hover:text-black"
+                                                onClick={() => router.push(`/leads/${lead._id}`)}
+                                            >
                                                 View Details
                                             </Button>
                                         </TableCell>

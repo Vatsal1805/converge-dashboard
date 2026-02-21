@@ -15,7 +15,7 @@ async function getStats() {
     const [totalUsers, totalProjects, activeTasks, wonLeads] = await Promise.all([
         User.countDocuments(),
         Project.countDocuments({ status: 'active' }),
-        Task.countDocuments({ status: { $in: ['todo', 'in_progress', 'review'] } }),
+        Task.countDocuments({ status: { $in: ['not_started', 'in_progress', 'under_review'] } }),
         Lead.find({ status: 'won' })
     ]);
 
@@ -32,10 +32,10 @@ export default async function FounderDashboard() {
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Founder Overview</h2>
                 <div className="flex items-center gap-2">
-                    <Button asChild>
+                    <Button asChild className="text-black hover:text-black">
                         <Link href="/projects/create">New Project</Link>
                     </Button>
-                    <Button asChild variant="secondary">
+                    <Button asChild variant="secondary" className="text-black hover:text-black">
                         <Link href="/dashboard/founder/users">Manage Users</Link>
                     </Button>
                 </div>

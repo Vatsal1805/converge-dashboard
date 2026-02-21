@@ -46,6 +46,7 @@ export async function POST(request: Request) {
 
         const task = await Task.create({
             ...data,
+            status: 'not_started',
             createdBy: (session as any).id
         });
 

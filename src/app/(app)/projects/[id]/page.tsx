@@ -4,7 +4,8 @@ import { useState, useEffect, use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Calendar, User as UserIcon, Loader2, ArrowLeft, Clock } from 'lucide-react';
+import { Briefcase, Calendar, User as UserIcon, Loader2, ArrowLeft, Clock, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface Project {
@@ -20,26 +21,50 @@ interface Project {
 }
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const router = useRouter();
     const { id } = use(params);
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<{ id: string, role: string } | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
-        const fetchProject = async () => {
+        const fetchData = async () => {
             try {
-                const res = await fetch(`/api/projects/${id}`);
-                const data = await res.json();
-                if (data.project) {
-                    setProject(data.project);
-                }
+                const [projRes, userRes] = await Promise.all([
+                    fetch(`/api/projects/${id}`),
+                    fetch('/api/auth/me')
+                ]);
+                const projData = await projRes.json();
+                const userData = await userRes.json();
+
+                if (projData.project) setProject(projData.project);
+                if (userData.user) setCurrentUser(userData.user);
             } catch (err) {
-                console.error('Failed to fetch project details', err);
+                console.error('Failed to fetch data', err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchProject();
+        fetchData();
     }, [id]);
+
+    const handleDelete = async () => {
+        if (!confirm('Are you sure you want to permanently delete this project? This will NOT delete associated tasks but they will lose their project reference.')) return;
+        setDeleting(true);
+        try {
+            const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                router.push('/projects');
+            } else {
+                alert('Failed to delete project');
+            }
+        } catch (err) {
+            console.error('Delete error:', err);
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -62,7 +87,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         return (
             <div className="text-center py-12">
                 <h2 className="text-2xl font-bold">Project not found</h2>
-                <Button asChild className="mt-4" variant="outline">
+                <Button asChild className="mt-4 text-black hover:text-black" variant="outline">
                     <Link href="/projects"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Projects</Link>
                 </Button>
             </div>
@@ -72,60 +97,72 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="sm" className="text-black hover:text-black">
                     <Link href="/projects"><ArrowLeft className="h-4 w-4" /></Link>
                 </Button>
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
-                    <p className="text-muted-foreground">{project.clientName}</p>
+                    <h2 className="text-3xl font-bold tracking-tight text-black">{project.name}</h2>
+                    <p className="text-slate-600">{project.clientName}</p>
                 </div>
+                {currentUser?.role === 'founder' && (
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="ml-auto text-black hover:text-black"
+                    >
+                        {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                        Delete Project
+                    </Button>
+                )}
             </div>
 
             <div className="grid gap-6 md:grid-cols-3">
-                <Card className="md:col-span-2">
+                <Card className="md:col-span-2 border-slate-200 shadow-sm">
                     <CardHeader>
-                        <CardTitle>Description</CardTitle>
+                        <CardTitle className="text-black">Description</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-slate-600 dark:text-slate-400">
+                        <p className="text-slate-800 leading-relaxed">
                             {project.description || 'No description provided.'}
                         </p>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="border-slate-200 shadow-sm">
                     <CardHeader>
-                        <CardTitle>Project Details</CardTitle>
+                        <CardTitle className="text-black">Project Details</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">Status</span>
+                            <span className="text-sm font-semibold text-slate-700">Status</span>
                             <Badge variant="outline" className={getStatusColor(project.status)}>
                                 {project.status.toUpperCase()}
                             </Badge>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">Priority</span>
-                            <Badge variant="outline">{project.priority.toUpperCase()}</Badge>
+                            <span className="text-sm font-semibold text-slate-700">Priority</span>
+                            <Badge variant="outline" className="text-black border-slate-300">{project.priority.toUpperCase()}</Badge>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">Deadline</span>
-                            <div className="flex items-center gap-1 text-sm">
-                                <Calendar className="h-4 w-4" />
+                            <span className="text-sm font-semibold text-slate-700">Deadline</span>
+                            <div className="flex items-center gap-1 text-sm text-black">
+                                <Calendar className="h-4 w-4 text-slate-500" />
                                 {new Date(project.deadline).toLocaleDateString()}
                             </div>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-muted-foreground">Team Lead</span>
-                            <div className="flex items-center gap-1 text-sm">
-                                <UserIcon className="h-4 w-4" />
+                            <span className="text-sm font-semibold text-slate-700">Team Lead</span>
+                            <div className="flex items-center gap-1 text-sm text-black">
+                                <UserIcon className="h-4 w-4 text-slate-500" />
                                 {project.teamLeadId?.name || 'Unassigned'}
                             </div>
                         </div>
                         {project.budget && (
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-muted-foreground">Budget</span>
-                                <span className="text-sm font-bold">${project.budget.toLocaleString()}</span>
+                            <div className="flex items-center justify-between border-t pt-4 mt-4">
+                                <span className="text-sm font-semibold text-slate-700">Budget</span>
+                                <span className="text-sm font-bold text-black">${project.budget.toLocaleString()}</span>
                             </div>
                         )}
                     </CardContent>

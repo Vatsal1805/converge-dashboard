@@ -44,7 +44,7 @@ export async function PUT(
         if (internStatus) {
             updateData.internStatus = internStatus;
             // If intern marks as started, also update main status to in_progress
-            if (internStatus === 'started' && task.status === 'todo') {
+            if (internStatus === 'started' && task.status === 'not_started') {
                 updateData.status = 'in_progress';
             }
         }
@@ -57,8 +57,8 @@ export async function PUT(
             updateData,
             { new: true, runValidators: true }
         ).populate('projectId', 'name')
-         .populate('assignedTo', 'name email')
-         .populate('createdBy', 'name');
+            .populate('assignedTo', 'name email')
+            .populate('createdBy', 'name');
 
         return NextResponse.json({ task: updatedTask });
     } catch (error: any) {

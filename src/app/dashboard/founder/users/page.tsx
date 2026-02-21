@@ -189,7 +189,7 @@ export default function UsersPage() {
                 </div>
                 <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button className="text-black hover:text-black">
                             <Plus className="mr-2 h-4 w-4" />
                             Add User
                         </Button>
@@ -269,7 +269,7 @@ export default function UsersPage() {
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button type="submit" disabled={submitting}>
+                                <Button type="submit" disabled={submitting} className="text-black hover:text-black">
                                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Create Account
                                 </Button>
@@ -334,7 +334,7 @@ export default function UsersPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" onClick={() => handleEditClick(user)}>
+                                            <Button variant="ghost" size="sm" onClick={() => handleEditClick(user)} className="text-black hover:text-black">
                                                 <Pencil className="h-4 w-4 mr-1" />
                                                 Edit
                                             </Button>
@@ -452,6 +452,7 @@ export default function UsersPage() {
                                                 variant="destructive"
                                                 size="sm"
                                                 onClick={() => setConfirmDelete(true)}
+                                                className="text-black hover:text-black"
                                             >
                                                 <Trash2 className="h-4 w-4 mr-1" />
                                                 Remove
@@ -463,6 +464,7 @@ export default function UsersPage() {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setConfirmDelete(false)}
+                                                    className="text-black hover:text-black"
                                                 >
                                                     Cancel
                                                 </Button>
@@ -472,6 +474,7 @@ export default function UsersPage() {
                                                     size="sm"
                                                     onClick={handleDeleteUser}
                                                     disabled={deleting}
+                                                    className="text-black hover:text-black"
                                                 >
                                                     {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                                     Confirm Remove
@@ -483,10 +486,10 @@ export default function UsersPage() {
                             )}
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                            <Button type="button" variant="outline" onClick={() => setEditOpen(false)} className="text-black hover:text-black">
                                 Cancel
                             </Button>
-                            <Button type="submit" disabled={submitting}>
+                            <Button type="submit" disabled={submitting} className="text-black hover:text-black">
                                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Save Changes
                             </Button>

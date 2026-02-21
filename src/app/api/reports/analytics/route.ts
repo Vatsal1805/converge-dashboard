@@ -54,7 +54,7 @@ export async function GET() {
             Project.countDocuments({ status: 'completed' }),
             Task.countDocuments({}),
             Task.countDocuments({ status: 'completed' }),
-            Task.countDocuments({ status: 'todo' }),
+            Task.countDocuments({ status: 'not_started' }),
             Task.countDocuments({ status: 'in_progress' }),
             Lead.countDocuments({}),
             Lead.countDocuments({ status: 'converted' }),

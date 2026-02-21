@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-    Search, Plus, FileText, Upload, Download, 
-    Folder, Star, Clock, Grid, List, ExternalLink, 
+import {
+    Search, Plus, FileText, Upload, Download,
+    Folder, Star, Clock, Grid, List, ExternalLink,
     ArrowLeft, Check, X, Loader2, BookOpen
 } from 'lucide-react';
 
@@ -70,7 +70,7 @@ export default function ResearchPage() {
             ]);
             const researchData = await researchRes.json();
             const projectsData = await projectsRes.json();
-            
+
             if (researchData.research) setResearch(researchData.research);
             if (projectsData.projects) setProjects(projectsData.projects);
         } catch (err) {
@@ -150,7 +150,7 @@ export default function ResearchPage() {
         return (
             <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" onClick={() => setSelectedResearch(null)}>
+                    <Button variant="ghost" onClick={() => setSelectedResearch(null)} className="text-black hover:text-black">
                         <ArrowLeft className="h-4 w-4 mr-2" />
                         Back to Research
                     </Button>
@@ -199,7 +199,7 @@ export default function ResearchPage() {
                                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
                                     <FileText className="h-16 w-16 text-muted-foreground mb-4" />
                                     <p className="text-muted-foreground mb-4">Document content not extracted</p>
-                                    <Button variant="outline" asChild>
+                                    <Button variant="outline" asChild className="text-black hover:text-black">
                                         <a href={selectedResearch.fileUrl} target="_blank" rel="noopener noreferrer">
                                             <ExternalLink className="h-4 w-4 mr-2" />
                                             Open Original File
@@ -214,7 +214,7 @@ export default function ResearchPage() {
                             <div className="flex gap-3 pt-4 border-t">
                                 <Button
                                     variant="outline"
-                                    className="flex-1 text-green-600 hover:bg-green-50"
+                                    className="flex-1 text-green-600 hover:bg-green-50 hover:text-green-700"
                                     onClick={() => handleReview(selectedResearch._id, 'approved')}
                                 >
                                     <Check className="h-4 w-4 mr-2" />
@@ -222,7 +222,7 @@ export default function ResearchPage() {
                                 </Button>
                                 <Button
                                     variant="outline"
-                                    className="flex-1 text-red-600 hover:bg-red-50"
+                                    className="flex-1 text-red-600 hover:bg-red-50 hover:text-red-700"
                                     onClick={() => handleReview(selectedResearch._id, 'rejected')}
                                 >
                                     <X className="h-4 w-4 mr-2" />
@@ -258,7 +258,7 @@ export default function ResearchPage() {
                 </div>
                 <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
                     <DialogTrigger asChild>
-                        <Button>
+                        <Button className="text-black hover:text-black">
                             <Upload className="mr-2 h-4 w-4" />
                             Upload Research
                         </Button>
@@ -355,8 +355,8 @@ export default function ResearchPage() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-                            <Button onClick={handleUpload} disabled={uploading || !formData.title || !formData.fileUrl}>
+                            <Button variant="outline" onClick={() => setIsUploadOpen(false)} className="text-black hover:text-black">Cancel</Button>
+                            <Button onClick={handleUpload} disabled={uploading || !formData.title || !formData.fileUrl} className="text-black hover:text-black">
                                 {uploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Upload
                             </Button>
@@ -419,8 +419,8 @@ export default function ResearchPage() {
             ) : viewMode === 'grid' ? (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredResearch.map((item) => (
-                        <Card 
-                            key={item._id} 
+                        <Card
+                            key={item._id}
                             className="hover:shadow-md transition-shadow cursor-pointer group"
                             onClick={() => setSelectedResearch(item)}
                         >
@@ -455,8 +455,8 @@ export default function ResearchPage() {
                     <CardContent className="p-0">
                         <div className="divide-y">
                             {filteredResearch.map((item) => (
-                                <div 
-                                    key={item._id} 
+                                <div
+                                    key={item._id}
                                     className="flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                                     onClick={() => setSelectedResearch(item)}
                                 >
@@ -475,7 +475,7 @@ export default function ResearchPage() {
                                         <Badge variant="outline" className={getStatusColor(item.status)}>
                                             {item.status}
                                         </Badge>
-                                        <Button variant="ghost" size="sm">View</Button>
+                                        <Button variant="ghost" size="sm" className="text-black hover:text-black">View</Button>
                                     </div>
                                 </div>
                             ))}

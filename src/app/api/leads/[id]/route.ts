@@ -4,6 +4,31 @@ import connectToDatabase from '@/lib/db';
 import Lead from '@/models/Lead';
 import { cookies } from 'next/headers';
 
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    try {
+        const { id } = await params;
+        const cookieStore = await cookies();
+        const token = cookieStore.get('auth_token')?.value;
+        const session = await verifyToken(token || '');
+
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        await connectToDatabase();
+        const lead = await Lead.findById(id).populate('assignedTo', 'name email');
+
+        if (!lead) {
+            return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ lead });
+    } catch (error) {
+        console.error('Fetch Lead Detail Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;

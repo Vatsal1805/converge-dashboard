@@ -16,11 +16,28 @@ export async function GET(request: Request) {
 
         await connectToDatabase();
 
-        // Simplification: Return all leads for now, or filter by assignedTo for TeamLeads
-        const leads = await Lead.find({})
-            .sort({ dateAdded: -1 });
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '10');
+        const skip = (page - 1) * limit;
 
-        return NextResponse.json({ leads });
+        const [leads, total] = await Promise.all([
+            Lead.find({})
+                .sort({ dateAdded: -1 })
+                .skip(skip)
+                .limit(limit),
+            Lead.countDocuments({})
+        ]);
+
+        return NextResponse.json({
+            leads,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
 
     } catch (error) {
         console.error('List Leads Error:', error);

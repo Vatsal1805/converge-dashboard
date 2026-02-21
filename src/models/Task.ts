@@ -6,9 +6,15 @@ export interface ITask extends Document {
     projectId: mongoose.Types.ObjectId;
     assignedTo: mongoose.Types.ObjectId; // User (Intern)
     priority: 'low' | 'medium' | 'high';
-    status: 'todo' | 'in_progress' | 'review' | 'completed' | 'rejected';
+    status: 'not_started' | 'in_progress' | 'working' | 'on_hold' | 'under_review' | 'completed';
     internStatus?: 'not_started' | 'started' | 'issue' | 'emergency' | 'other';
     internNote?: string;
+    attachments: {
+        name: string;
+        url: string;
+        type: string;
+        uploadedAt: Date;
+    }[];
     deadline: Date;
     estimatedHours: number;
     hoursLogged: number;
@@ -29,8 +35,8 @@ const TaskSchema = new Schema<ITask>({
     },
     status: {
         type: String,
-        enum: ['todo', 'in_progress', 'review', 'completed', 'rejected'],
-        default: 'todo'
+        enum: ['not_started', 'in_progress', 'working', 'on_hold', 'under_review', 'completed'],
+        default: 'not_started'
     },
     internStatus: {
         type: String,
@@ -38,6 +44,12 @@ const TaskSchema = new Schema<ITask>({
         default: 'not_started'
     },
     internNote: { type: String },
+    attachments: [{
+        name: { type: String, required: true },
+        url: { type: String, required: true },
+        type: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now }
+    }],
     deadline: { type: Date, required: true },
     estimatedHours: { type: Number, default: 0 },
     hoursLogged: { type: Number, default: 0 },

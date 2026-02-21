@@ -24,19 +24,26 @@ export default function ProjectsPage() {
     const router = useRouter();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<{ id: string, role: string } | null>(null);
+    const [fetchingUser, setFetchingUser] = useState(true);
 
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const res = await fetch('/api/projects/list');
-                const data = await res.json();
-                if (data.projects) {
-                    setProjects(data.projects);
-                }
+                const [projectsRes, userRes] = await Promise.all([
+                    fetch('/api/projects/list'),
+                    fetch('/api/auth/me')
+                ]);
+                const projectsData = await projectsRes.json();
+                const userData = await userRes.json();
+
+                setProjects(Array.isArray(projectsData) ? projectsData : (projectsData.projects || []));
+                if (userData.user) setCurrentUser(userData.user);
             } catch (err) {
-                console.error('Failed to fetch projects', err);
+                console.error('Failed to fetch data', err);
             } finally {
                 setLoading(false);
+                setFetchingUser(false);
             }
         };
         fetchProjects();
@@ -68,12 +75,14 @@ export default function ProjectsPage() {
                     <h2 className="text-3xl font-bold tracking-tight">Projects</h2>
                     <p className="text-muted-foreground">Manage ongoing projects and track progress.</p>
                 </div>
-                <Button asChild>
-                    <Link href="/projects/create">
-                        <Plus className="mr-2 h-4 w-4" />
-                        New Project
-                    </Link>
-                </Button>
+                {(currentUser?.role === 'founder' || currentUser?.role === 'teamlead') && (
+                    <Button asChild className="text-black hover:text-black">
+                        <Link href="/projects/create">
+                            <Plus className="mr-2 h-4 w-4" />
+                            New Project
+                        </Link>
+                    </Button>
+                )}
             </div>
 
             <Card>
@@ -89,12 +98,12 @@ export default function ProjectsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Project Name</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Priority</TableHead>
-                                <TableHead>Team Lead</TableHead>
-                                <TableHead>Deadline</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-black font-bold">Project</TableHead>
+                                <TableHead className="text-black font-bold">Status</TableHead>
+                                <TableHead className="text-black font-bold">Priority</TableHead>
+                                <TableHead className="text-black font-bold">Team Lead</TableHead>
+                                <TableHead className="text-black font-bold">Deadline</TableHead>
+                                <TableHead className="text-right text-black font-bold">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -113,8 +122,8 @@ export default function ProjectsPage() {
                                     <TableRow key={project._id} className="group">
                                         <TableCell className="font-medium">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-semibold">{project.name}</span>
-                                                <span className="text-xs text-muted-foreground">{project.clientName}</span>
+                                                <span className="text-sm font-semibold text-black">{project.name}</span>
+                                                <span className="text-xs text-slate-700">{project.clientName}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -128,16 +137,16 @@ export default function ProjectsPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                                            <div className="flex items-center gap-2 text-sm text-black">
                                                 <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
-                                                    <UserIcon className="h-3 w-3" />
+                                                    <UserIcon className="h-3 w-3 text-slate-500" />
                                                 </div>
                                                 {typeof project.teamLeadId === 'object' ? project.teamLeadId.name : 'Unassigned'}
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                                <Calendar className="h-3 w-3" />
+                                            <div className="flex items-center gap-2 text-sm text-black">
+                                                <Calendar className="h-3 w-3 text-slate-500" />
                                                 {new Date(project.deadline).toLocaleDateString()}
                                             </div>
                                         </TableCell>
@@ -145,7 +154,7 @@ export default function ProjectsPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className=" text-black hover:text-black"
                                                 onClick={() => router.push(`/projects/${project._id}`)}
                                             >
                                                 View Details
