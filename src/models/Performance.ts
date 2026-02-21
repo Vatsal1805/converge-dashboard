@@ -37,12 +37,17 @@ const PerformanceSchema = new Schema<IPerformance>(
     { timestamps: true }
 );
 
+// Indexes for performance
+PerformanceSchema.index({ intern: 1 });
+PerformanceSchema.index({ period: 1 });
+PerformanceSchema.index({ createdAt: -1 });
+
 // Calculate overall score before saving
-PerformanceSchema.pre('save', function() {
+PerformanceSchema.pre('save', function () {
     const metrics = this.metrics;
     this.overallScore = Math.round(
-        ((metrics.taskCompletion + metrics.quality + metrics.communication + 
-          metrics.punctuality + metrics.initiative) / 5) * 10
+        ((metrics.taskCompletion + metrics.quality + metrics.communication +
+            metrics.punctuality + metrics.initiative) / 5) * 10
     );
 });
 

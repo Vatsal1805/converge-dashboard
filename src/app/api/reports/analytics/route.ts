@@ -25,7 +25,7 @@ export async function GET() {
 
         await connectToDatabase();
 
-        // Get counts
+        // Get everything in parallel
         const [
             totalUsers,
             totalInterns,
@@ -39,6 +39,12 @@ export async function GET() {
             inProgressTasks,
             totalLeads,
             convertedLeads,
+            topPerformers,
+            recentProjects,
+            overdueTasks,
+            departmentStats,
+            tasksByStatus,
+            leadsByStatus,
         ] = await Promise.all([
             User.countDocuments({}),
             User.countDocuments({ role: 'intern' }),
@@ -52,41 +58,29 @@ export async function GET() {
             Task.countDocuments({ status: 'in_progress' }),
             Lead.countDocuments({}),
             Lead.countDocuments({ status: 'converted' }),
-        ]);
-
-        // Get top performers
-        const topPerformers = await User.find({ role: 'intern' })
-            .select('name email department performanceScore')
-            .sort({ performanceScore: -1 })
-            .limit(5);
-
-        // Get recent projects
-        const recentProjects = await Project.find({})
-            .select('name clientName status priority deadline')
-            .populate('teamLeadId', 'name')
-            .sort({ createdAt: -1 })
-            .limit(5);
-
-        // Get overdue tasks
-        const overdueTasks = await Task.countDocuments({
-            status: { $ne: 'completed' },
-            deadline: { $lt: new Date() },
-        });
-
-        // Department breakdown
-        const departmentStats = await User.aggregate([
-            { $match: { role: 'intern' } },
-            { $group: { _id: '$department', count: { $sum: 1 }, avgScore: { $avg: '$performanceScore' } } },
-        ]);
-
-        // Task completion rate by status
-        const tasksByStatus = await Task.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]);
-
-        // Lead conversion rate
-        const leadsByStatus = await Lead.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 } } },
+            User.find({ role: 'intern' })
+                .select('name email department performanceScore')
+                .sort({ performanceScore: -1 })
+                .limit(5),
+            Project.find({})
+                .select('name clientName status priority deadline')
+                .populate('teamLeadId', 'name')
+                .sort({ createdAt: -1 })
+                .limit(5),
+            Task.countDocuments({
+                status: { $ne: 'completed' },
+                deadline: { $lt: new Date() },
+            }),
+            User.aggregate([
+                { $match: { role: 'intern' } },
+                { $group: { _id: '$department', count: { $sum: 1 }, avgScore: { $avg: '$performanceScore' } } },
+            ]),
+            Task.aggregate([
+                { $group: { _id: '$status', count: { $sum: 1 } } },
+            ]),
+            Lead.aggregate([
+                { $group: { _id: '$status', count: { $sum: 1 } } },
+            ]),
         ]);
 
         return NextResponse.json({

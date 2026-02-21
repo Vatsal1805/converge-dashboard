@@ -29,5 +29,10 @@ const BrainstormSchema = new Schema<IBrainstorm>(
     { timestamps: true }
 );
 
+// Indexes for performance
+BrainstormSchema.index({ author: 1 });
+BrainstormSchema.index({ createdAt: -1 });
+BrainstormSchema.index({ tags: 1 });
+
 const Brainstorm: Model<IBrainstorm> = mongoose.models.Brainstorm || mongoose.model<IBrainstorm>('Brainstorm', BrainstormSchema);
 export default Brainstorm;

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Task {
     _id: string;
@@ -37,6 +38,7 @@ interface User {
 }
 
 export default function TasksPage() {
+    const router = useRouter();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -114,11 +116,11 @@ export default function TasksPage() {
                     fetch('/api/projects/list'),
                     fetch('/api/users/list?role=intern,teamlead'),
                 ]);
-                
+
                 const tasksData = await tasksRes.json();
                 const projectsData = await projectsRes.json();
                 const usersData = await usersRes.json();
-                
+
                 if (tasksData.tasks) setTasks(tasksData.tasks);
                 if (projectsData.projects) setProjects(projectsData.projects);
                 if (usersData.users) setUsers(usersData.users);
@@ -361,7 +363,7 @@ export default function TasksPage() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm">Details</Button>
+                                            <Button variant="ghost" size="sm" onClick={() => router.push(`/tasks/${task._id}`)}>Details</Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

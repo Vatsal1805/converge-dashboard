@@ -5,6 +5,33 @@ import Task from '@/models/Task';
 import User from '@/models/User';
 import { cookies } from 'next/headers';
 
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    try {
+        const { id } = await params;
+        const cookieStore = await cookies();
+        const token = cookieStore.get('auth_token')?.value;
+        const session = await verifyToken(token || '');
+
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        await connectToDatabase();
+        const task = await Task.findById(id)
+            .populate('assignedTo', 'name email')
+            .populate('projectId', 'name clientName');
+
+        if (!task) {
+            return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ task });
+    } catch (error) {
+        console.error('Fetch Task Detail Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;

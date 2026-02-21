@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Briefcase, Plus, Search, Calendar, User as UserIcon, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Project {
     _id: string;
@@ -20,6 +21,7 @@ interface Project {
 }
 
 export default function ProjectsPage() {
+    const router = useRouter();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -140,7 +142,12 @@ export default function ProjectsPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => router.push(`/projects/${project._id}`)}
+                                            >
                                                 View Details
                                             </Button>
                                         </TableCell>

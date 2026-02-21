@@ -16,6 +16,11 @@ export async function GET(request: Request) {
 
         await connectToDatabase();
 
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '20');
+        const skip = (page - 1) * limit;
+
         let query = {};
         const role = (session as any).role;
         const userId = (session as any).id;
@@ -23,20 +28,27 @@ export async function GET(request: Request) {
         if (role === 'teamlead') {
             query = { teamLeadId: userId };
         } else if (role === 'intern') {
-            // Logic for interns: usually they see projects they have tasks in. 
-            // This requires a join with Tasks or separate query. 
-            // For MVP, maybe they strictly see nothing here OR we add 'members' array to Project?
-            // Leaving strict for now: return empty or handled in Task module.
-            // Or maybe allow read-only access to all projects for context?
-            // Requirement: "Intern can only see assigned tasks." implies strictness.
-            query = { _id: { $exists: false } }; // Return nothing
+            query = { _id: { $exists: false } };
         }
 
-        const projects = await Project.find(query)
-            .populate('teamLeadId', 'name email')
-            .sort({ createdAt: -1 });
+        const [projects, total] = await Promise.all([
+            Project.find(query)
+                .populate('teamLeadId', 'name email')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Project.countDocuments(query)
+        ]);
 
-        return NextResponse.json({ projects });
+        return NextResponse.json({
+            projects,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        });
 
     } catch (error) {
         console.error('List Projects Error:', error);

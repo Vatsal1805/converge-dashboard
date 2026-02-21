@@ -23,17 +23,34 @@ export async function GET(request: Request) {
 
         await connectToDatabase();
 
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '20');
+        const skip = (page - 1) * limit;
+
         const query: any = {};
         if (internId) {
             query.intern = internId;
         }
 
-        const performances = await Performance.find(query)
-            .populate('intern', 'name email department')
-            .populate('reviewer', 'name email role')
-            .sort({ createdAt: -1 });
+        const [performances, total] = await Promise.all([
+            Performance.find(query)
+                .populate('intern', 'name email department')
+                .populate('reviewer', 'name email role')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Performance.countDocuments(query)
+        ]);
 
-        return NextResponse.json({ performances });
+        return NextResponse.json({
+            performances,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        });
     } catch (error) {
         console.error('List Performance Error:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
