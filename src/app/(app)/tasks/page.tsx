@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSession } from '@/components/auth/SessionProvider';
 
 interface Task {
     _id: string;
@@ -40,11 +41,11 @@ interface User {
 
 export default function TasksPage() {
     const router = useRouter();
+    const { user: currentUser, loading: sessionLoading } = useSession();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<User[]>([]);
-    const [currentUser, setCurrentUser] = useState<{ id: string, role: string } | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [creating, setCreating] = useState(false);
     const [formData, setFormData] = useState({
@@ -113,22 +114,19 @@ export default function TasksPage() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [tasksRes, projectsRes, usersRes, meRes] = await Promise.all([
+                const [tasksRes, projectsRes, usersRes] = await Promise.all([
                     fetch('/api/tasks/list'),
                     fetch('/api/projects/list'),
-                    fetch('/api/users/list?role=intern,teamlead'),
-                    fetch('/api/auth/me')
+                    fetch('/api/users/list?role=intern,teamlead')
                 ]);
 
                 const tasksData = await tasksRes.json();
                 const projectsData = await projectsRes.json();
                 const usersData = await usersRes.json();
-                const meData = await meRes.json();
 
                 setTasks(Array.isArray(tasksData) ? tasksData : (tasksData.tasks || []));
                 setProjects(Array.isArray(projectsData) ? projectsData : (projectsData.projects || []));
                 setUsers(Array.isArray(usersData) ? usersData : (usersData.users || []));
-                if (meData.user) setCurrentUser(meData.user);
             } catch (err) {
                 console.error('Failed to fetch data', err);
             } finally {

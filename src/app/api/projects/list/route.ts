@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
         const [projects, total] = await Promise.all([
             Project.find(query)
-                .select('name clientName status priority deadline teamLeadId createdAt description')
+                .select('name clientName status priority deadline teamLeadId createdAt')
                 .populate({
                     path: 'teamLeadId',
                     select: 'name email'

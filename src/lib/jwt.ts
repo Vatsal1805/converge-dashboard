@@ -30,9 +30,14 @@ export async function verifyToken(token: string) {
  */
 export async function getUserFromRequest(request: Request | any) {
     // 1. Check for header (fastest, pre-decoded by middleware)
-    const headerData = request.headers instanceof Headers
-        ? request.headers.get('x-user-data')
-        : request.headers?.['x-user-data'];
+    let headerData = null;
+    if (request.headers instanceof Headers) {
+        headerData = request.headers.get('x-user-data');
+    } else if (typeof request.headers?.get === 'function') {
+        headerData = request.headers.get('x-user-data');
+    } else {
+        headerData = request.headers?.['x-user-data'];
+    }
 
     if (headerData) {
         try {

@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useSession } from '@/components/auth/SessionProvider';
 
 interface Project {
     _id: string;
@@ -23,28 +24,20 @@ interface Project {
 
 export default function ProjectsPage() {
     const router = useRouter();
+    const { user: currentUser, loading: sessionLoading } = useSession();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentUser, setCurrentUser] = useState<{ id: string, role: string } | null>(null);
-    const [fetchingUser, setFetchingUser] = useState(true);
 
     useEffect(() => {
         const fetchProjects = async () => {
             try {
-                const [projectsRes, userRes] = await Promise.all([
-                    fetch('/api/projects/list'),
-                    fetch('/api/auth/me')
-                ]);
-                const projectsData = await projectsRes.json();
-                const userData = await userRes.json();
-
-                setProjects(Array.isArray(projectsData) ? projectsData : (projectsData.projects || []));
-                if (userData.user) setCurrentUser(userData.user);
+                const res = await fetch('/api/projects/list');
+                const data = await res.json();
+                setProjects(Array.isArray(data) ? data : (data.projects || []));
             } catch (err) {
-                console.error('Failed to fetch data', err);
+                console.error('Failed to fetch projects', err);
             } finally {
                 setLoading(false);
-                setFetchingUser(false);
             }
         };
         fetchProjects();

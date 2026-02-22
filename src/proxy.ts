@@ -5,7 +5,7 @@ import { verifyToken } from './lib/jwt';
 // Define public routes
 const publicRoutes = ['/login', '/public'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Bypass for static files and api routes that are public (like login)
