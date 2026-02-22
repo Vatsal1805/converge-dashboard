@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Heart, MessageCircle, Send, Loader2, Hash, Lightbulb } from 'lucide-react';
+import { Heart, MessageCircle, Send, Loader2, Hash, Lightbulb, Trash2 } from 'lucide-react';
 
 interface Comment {
     _id: string;
@@ -18,7 +18,7 @@ interface Comment {
 
 interface Post {
     _id: string;
-    author: { _id: string; name: string; email: string; role: string };
+    author: { _id: string; name: string; email: string; role: string; department?: string };
     content: string;
     tags: string[];
     likes: { _id: string; name: string }[];
@@ -29,6 +29,7 @@ interface Post {
 export default function BrainstormPage() {
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentUser, setCurrentUser] = useState<any>(null);
     const [newPost, setNewPost] = useState('');
     const [newTags, setNewTags] = useState('');
     const [posting, setPosting] = useState(false);
@@ -37,7 +38,20 @@ export default function BrainstormPage() {
 
     useEffect(() => {
         fetchPosts();
+        fetchCurrentUser();
     }, []);
+
+    const fetchCurrentUser = async () => {
+        try {
+            const res = await fetch('/api/auth/me');
+            const data = await res.json();
+            if (data.user) {
+                setCurrentUser(data.user);
+            }
+        } catch (err) {
+            console.error('Failed to fetch user', err);
+        }
+    };
 
     const fetchPosts = async () => {
         try {
@@ -108,6 +122,25 @@ export default function BrainstormPage() {
             }
         } catch (err) {
             console.error('Failed to comment', err);
+        }
+    };
+
+    const handleDeletePost = async (postId: string) => {
+        if (!confirm('Are you sure you want to delete this post?')) return;
+
+        try {
+            const res = await fetch(`/api/brainstorm/${postId}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                setPosts(posts.filter(p => p._id !== postId));
+            } else {
+                const data = await res.json();
+                alert(data.error || 'Failed to delete post');
+            }
+        } catch (err) {
+            console.error('Failed to delete post', err);
+            alert('Something went wrong');
         }
     };
 
@@ -189,6 +222,20 @@ export default function BrainstormPage() {
                                             {new Date(post.createdAt).toLocaleDateString()} at {new Date(post.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
+                                    {currentUser && (
+                                        currentUser.role === 'founder' ||
+                                        currentUser.id === post.author._id ||
+                                        (currentUser.role === 'teamlead' && currentUser.department === post.author.department)
+                                    ) && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-muted-foreground hover:text-red-600 h-8 w-8"
+                                                onClick={() => handleDeletePost(post._id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                 </div>
                             </CardHeader>
                             <CardContent className="pb-3">

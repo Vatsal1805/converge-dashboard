@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -315,14 +316,21 @@ export default function TasksPage() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow key="loading">
-                                    <TableCell colSpan={7} className="text-center py-8">
-                                        <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                                    </TableCell>
-                                </TableRow>
+                                [...Array(5)].map((_, i) => (
+                                    <TableRow key={`skeleton-${i}`}>
+                                        <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-[100px]" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                                        <TableCell className="text-right"><Skeleton className="h-8 w-[80px] ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
                             ) : tasks.length === 0 ? (
                                 <TableRow key="empty">
-                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No tasks found.</TableCell>
+                                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No tasks found.</TableCell>
                                 </TableRow>
                             ) : (
                                 tasks.map((task) => (

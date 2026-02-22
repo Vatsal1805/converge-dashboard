@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Task from '@/models/Task';
+import User from '@/models/User';
+import mongoose from 'mongoose';
 
 export async function GET(request: Request) {
     try {
@@ -25,7 +27,18 @@ export async function GET(request: Request) {
         if (role === 'intern') {
             query = { assignedTo: userId };
         } else if (role === 'teamlead') {
-            // Team Lead filter logic (placeholder or as implemented before)
+            // Fetch team lead's department
+            const teamLead = await User.findById(userId).select('department').lean();
+            if (teamLead) {
+                // Find all interns in the same department
+                const interns = await User.find({
+                    department: teamLead.department,
+                    role: 'intern'
+                }).select('_id').lean();
+
+                const internIds = interns.map((i: any) => i._id);
+                query = { assignedTo: { $in: internIds } };
+            }
         }
 
         // Performance Optimization: Use .lean() for faster execution and .select() to reduce payload size

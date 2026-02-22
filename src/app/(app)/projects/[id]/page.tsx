@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Briefcase, Calendar, User as UserIcon, Loader2, ArrowLeft, Clock, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Project {
     _id: string;
@@ -77,8 +78,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
     if (loading) {
         return (
-            <div className="flex h-[400px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <div className="space-y-2">
+                        <Skeleton className="h-8 w-64" />
+                        <Skeleton className="h-4 w-48" />
+                    </div>
+                </div>
+                <div className="grid gap-6 md:grid-cols-3">
+                    <Card className="md:col-span-2">
+                        <CardHeader><Skeleton className="h-6 w-32" /></CardHeader>
+                        <CardContent><Skeleton className="h-20 w-full" /></CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader><Skeleton className="h-6 w-24" /></CardHeader>
+                        <CardContent className="space-y-4">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="flex justify-between items-center">
+                                    <Skeleton className="h-4 w-20" />
+                                    <Skeleton className="h-4 w-24" />
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         );
     }

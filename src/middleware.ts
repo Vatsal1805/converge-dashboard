@@ -54,14 +54,18 @@ export async function middleware(request: NextRequest) {
 
     // Performance Optimization: Pass user data to API routes via headers
     // to avoid redundant JWT verification in API routes.
-    const response = NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
     if (user) {
         // We use base64 encoding to ensure the JSON string is safe for header values
         const userData = Buffer.from(JSON.stringify(user)).toString('base64');
-        response.headers.set('x-user-data', userData);
+        requestHeaders.set('x-user-data', userData);
     }
 
-    return response;
+    return NextResponse.next({
+        request: {
+            headers: requestHeaders,
+        },
+    });
 }
 
 export const config = {
