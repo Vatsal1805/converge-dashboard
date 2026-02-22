@@ -26,7 +26,8 @@ export async function proxy(request: NextRequest) {
     }
 
     // 1. Redirect to login if accessing protected route without auth
-    const isProtectedRoute = !publicRoutes.includes(pathname) && !pathname.startsWith('/api/auth');
+    const isProtectedRoute = !publicRoutes.includes(pathname) &&
+        !pathname.startsWith('/api/auth');
 
     if (!user && isProtectedRoute) {
         return NextResponse.redirect(new URL('/login', request.url));

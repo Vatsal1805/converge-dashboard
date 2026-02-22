@@ -48,7 +48,7 @@ export default function MyTasksPage() {
 
     const fetchTasks = async () => {
         try {
-            const res = await fetch('/api/tasks/list');
+            const res = await fetch('/api/tasks/list?scope=me');
             const data = await res.json();
             if (data.tasks) {
                 setTasks(data.tasks);

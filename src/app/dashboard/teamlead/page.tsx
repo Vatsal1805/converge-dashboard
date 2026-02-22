@@ -1,47 +1,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Briefcase, CheckSquare, Users } from 'lucide-react';
-import connectToDatabase from '@/lib/db';
-import Project from '@/models/Project';
-import Task from '@/models/Task';
-import User from '@/models/User';
 import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth';
 
-async function getTeamLeadStats(userId: string) {
-    await connectToDatabase();
+async function getTeamLeadData(token: string) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/dashboard/teamlead`, {
+        headers: {
+            Cookie: `auth_token=${token}`
+        }
+    });
 
-    // Fetch team lead's department
-    const teamLead = await User.findById(userId).select('department').lean();
-
-    let activeTasksQuery = { status: { $in: ['not_started', 'in_progress', 'working', 'on_hold', 'under_review'] } };
-
-    if (teamLead) {
-        // Find all interns in the same department
-        const interns = await User.find({
-            department: teamLead.department,
-            role: 'intern'
-        }).select('_id').lean();
-
-        const internIds = interns.map((i: any) => i._id);
-        (activeTasksQuery as any).assignedTo = { $in: internIds };
+    if (!res.ok) {
+        return { projects: [], tasks: [], stats: { myActiveProjects: 0, teamActiveTasks: 0 } };
     }
 
-    // FETCH DATA IN PARALLEL
-    const [myProjects, activeTasks] = await Promise.all([
-        Project.countDocuments({ teamLeadId: userId, status: 'active' }),
-        Task.countDocuments(activeTasksQuery)
-    ]);
-
-    return { myProjects, activeTasks };
+    return res.json();
 }
 
 export default async function TeamLeadDashboard() {
     const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-    const session = await verifyToken(token || '');
-    const userId = (session as any)?.id;
-
-    const stats = await getTeamLeadStats(userId);
+    const token = cookieStore.get('auth_token')?.value || '';
+    const data = await getTeamLeadData(token);
+    const { stats } = data;
 
     return (
         <div className="space-y-6">
@@ -53,7 +32,7 @@ export default async function TeamLeadDashboard() {
                         <Briefcase className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.myProjects}</div>
+                        <div className="text-2xl font-bold">{stats.myActiveProjects}</div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -62,7 +41,7 @@ export default async function TeamLeadDashboard() {
                         <CheckSquare className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{stats.activeTasks}</div>
+                        <div className="text-2xl font-bold">{stats.teamActiveTasks}</div>
                     </CardContent>
                 </Card>
             </div>

@@ -44,11 +44,21 @@ export function SessionProvider({
                     const res = await fetch('/api/auth/me');
                     const data = await res.json();
                     if (data.user) {
+                        // If user ID changed, clear other caches to prevent leakage
+                        const currentSession = storage.get<User>('user_session');
+                        if (currentSession && currentSession.id !== data.user.id) {
+                            storage.remove('tasks_cache');
+                            storage.remove('projects_cache');
+                            storage.remove('tasks_last_modified');
+                            storage.remove('projects_last_modified');
+                        }
                         setUser(data.user);
                         storage.set('user_session', data.user);
                     } else {
                         // Clear cache if session is actually invalid
                         storage.remove('user_session');
+                        storage.remove('tasks_cache');
+                        storage.remove('projects_cache');
                     }
                 } catch (error) {
                     console.error('Failed to fetch session:', error);

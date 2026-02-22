@@ -5,7 +5,10 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://rc8807928:rajesh@cluster0.zjpk6yy.mongodb.net/convergeos?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+}
 
 const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -26,19 +29,19 @@ async function seedFounder() {
 
         // Check if founder exists
         const existingFounder = await User.findOne({ role: 'founder' });
-        
+
         if (existingFounder) {
             console.log('Founder already exists:', existingFounder.email);
             console.log('Updating password...');
-            
+
             const hashedPassword = await bcrypt.hash('founder123', 10);
             existingFounder.password = hashedPassword;
             await existingFounder.save();
-            
+
             console.log('Password updated to: founder123');
         } else {
             const hashedPassword = await bcrypt.hash('founder123', 10);
-            
+
             const founder = await User.create({
                 name: 'Founder Admin',
                 email: 'founder@convergedigitals.com',
@@ -47,7 +50,7 @@ async function seedFounder() {
                 department: 'Executive',
                 status: 'active',
             });
-            
+
             console.log('Founder created:', founder.email);
         }
 

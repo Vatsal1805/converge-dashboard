@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Project from '@/models/Project';
+import { Types } from 'mongoose';
 
 export async function GET(request: Request) {
     try {
@@ -18,14 +19,22 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get('limit') || '20');
         const skip = (page - 1) * limit;
 
-        let query = {};
         const role = (session as any).role;
-        const userId = (session as any).id;
+        const userId = new Types.ObjectId((session as any).id);
+        const scope = searchParams.get('scope');
 
-        if (role === 'teamlead') {
-            query = { teamLeadId: userId };
-        } else if (role === 'intern') {
-            query = { _id: { $exists: false } };
+        let query: any = {};
+
+        if (scope === 'me') {
+            if (role === 'teamlead') {
+                query = { teamLeadId: userId };
+            } else if (role === 'intern') {
+                // Interns usually don't have "their" projects, but we can return nothing 
+                // or just assignments if we add a field later. For now, we follow current logic.
+                query = { _id: { $exists: false } };
+            }
+        } else {
+            // Global view (default) - accessible by all logged in users
         }
 
         const since = searchParams.get('since');

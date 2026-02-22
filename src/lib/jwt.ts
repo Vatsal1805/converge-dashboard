@@ -17,7 +17,7 @@ export async function verifyToken(token: string) {
         if (!token) return null;
         const { payload } = await jwtVerify(token, JWT_SECRET);
         return payload;
-    } catch (error) {
+    } catch (error: any) {
         return null;
     }
 }

@@ -4,7 +4,7 @@ import connectToDatabase from '@/lib/db';
 import Task from '@/models/Task';
 import User from '@/models/User';
 import Project from '@/models/Project';
-import mongoose from 'mongoose';
+import { Types } from 'mongoose';
 
 export async function GET(request: Request) {
     try {
@@ -21,25 +21,25 @@ export async function GET(request: Request) {
         const limit = parseInt(searchParams.get('limit') || '20');
         const skip = (page - 1) * limit;
 
-        let query = {};
         const role = (session as any).role;
-        const userId = (session as any).id;
+        const userId = new Types.ObjectId((session as any).id);
+        const scope = searchParams.get('scope');
+        console.log('[DEBUG] Tasks List API:', { userId: userId.toString(), role, scope });
 
-        if (role === 'intern') {
-            query = { assignedTo: userId };
-        } else if (role === 'teamlead') {
-            // Fetch team lead's department
-            const teamLead = await User.findById(userId).select('department').lean();
-            if (teamLead) {
-                // Find all interns in the same department
-                const interns = await User.find({
-                    department: teamLead.department,
-                    role: 'intern'
-                }).select('_id').lean();
+        let query: any = {};
 
-                const internIds = interns.map((i: any) => i._id);
-                query = { assignedTo: { $in: internIds } };
+        if (scope === 'me') {
+            if (role === 'intern') {
+                query = { assignedTo: userId };
+            } else if (role === 'teamlead') {
+                // Get all projects where this user is the Team Lead
+                const myProjects = await Project.find({ teamLeadId: userId }).select('_id').lean();
+                const projectIds = myProjects.map(p => p._id);
+                query = { projectId: { $in: projectIds } };
             }
+        } else {
+            // Global view (default)
+            // Optional: Filters from search params could go here
         }
 
         const since = searchParams.get('since');

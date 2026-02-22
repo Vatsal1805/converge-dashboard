@@ -2,30 +2,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Briefcase, CheckSquare, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import connectToDatabase from '@/lib/db';
-import User from '@/models/User';
-import Project from '@/models/Project';
-import Task from '@/models/Task';
-import Lead from '@/models/Lead';
+import { cookies } from 'next/headers';
 
-async function getStats() {
-    await connectToDatabase();
+async function getStats(token: string) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/dashboard/founder`, {
+        headers: {
+            Cookie: `auth_token=${token}`
+        }
+    });
 
-    // FETCH DATA IN PARALLEL
-    const [totalUsers, totalProjects, activeTasks, wonLeads] = await Promise.all([
-        User.countDocuments(),
-        Project.countDocuments({ status: 'active' }),
-        Task.countDocuments({ status: { $in: ['not_started', 'in_progress', 'under_review'] } }),
-        Lead.find({ status: 'won' })
-    ]);
+    if (!res.ok) {
+        return { totalUsers: 0, totalProjects: 0, activeTasks: 0, revenue: 0 };
+    }
 
-    const revenue = wonLeads.reduce((acc, lead) => acc + (lead.dealValue || 0), 0);
-
-    return { totalUsers, totalProjects, activeTasks, revenue };
+    return res.json();
 }
 
 export default async function FounderDashboard() {
-    const stats = await getStats();
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value || '';
+    const stats = await getStats(token);
 
     return (
         <div className="space-y-6">
