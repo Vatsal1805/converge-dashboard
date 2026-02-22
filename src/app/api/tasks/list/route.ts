@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Task from '@/models/Task';
-import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -31,13 +28,22 @@ export async function GET(request: Request) {
             // Team Lead filter logic (placeholder or as implemented before)
         }
 
+        // Performance Optimization: Use .lean() for faster execution and .select() to reduce payload size
         const [tasks, total] = await Promise.all([
             Task.find(query)
-                .populate('projectId', 'name clientName')
-                .populate('assignedTo', 'name email')
+                .select('title status priority deadline projectId assignedTo internStatus internNote createdAt description')
+                .populate({
+                    path: 'projectId',
+                    select: 'name clientName'
+                })
+                .populate({
+                    path: 'assignedTo',
+                    select: 'name email'
+                })
                 .sort({ deadline: 1 })
                 .skip(skip)
-                .limit(limit),
+                .limit(limit)
+                .lean(), // lean() returns plain JS objects, bypassing hydration
             Task.countDocuments(query)
         ]);
 

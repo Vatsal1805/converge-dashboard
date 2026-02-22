@@ -1,22 +1,19 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Project from '@/models/Project';
-import { cookies } from 'next/headers';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         await connectToDatabase();
-        const project = await Project.findById(id).populate('teamLeadId', 'name email');
+        const project = await Project.findById(id).populate('teamLeadId', 'name email').lean();
 
         if (!project) {
             return NextResponse.json({ error: 'Project not found' }, { status: 404 });
@@ -32,9 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

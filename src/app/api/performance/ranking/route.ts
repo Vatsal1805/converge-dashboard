@@ -1,16 +1,13 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Performance from '@/models/Performance';
 import Task from '@/models/Task';
 import User from '@/models/User';
-import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

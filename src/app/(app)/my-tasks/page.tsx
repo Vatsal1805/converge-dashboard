@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
@@ -69,6 +70,16 @@ export default function MyTasksPage() {
     const handleUpdateStatus = async () => {
         if (!selectedTask) return;
 
+        // Performance Optimization: Optimistic UI Update
+        const previousTasks = [...tasks];
+        const updatedTasks = tasks.map(t =>
+            t._id === selectedTask._id
+                ? { ...t, internStatus: newStatus as any, internNote: newNote }
+                : t
+        );
+        setTasks(updatedTasks);
+        setUpdateOpen(false);
+
         setSubmitting(true);
         try {
             const res = await fetch(`/api/tasks/${selectedTask._id}/status`, {
@@ -80,11 +91,16 @@ export default function MyTasksPage() {
                 }),
             });
 
-            if (res.ok) {
-                setUpdateOpen(false);
+            if (!res.ok) {
+                // Rollback if failed
+                setTasks(previousTasks);
+                console.error('Failed to update status');
+            } else {
+                // Fetch fresh data in background to ensure sync
                 fetchTasks();
             }
         } catch (err) {
+            setTasks(previousTasks);
             console.error('Failed to update status', err);
         } finally {
             setSubmitting(false);
@@ -144,16 +160,49 @@ export default function MyTasksPage() {
         });
     };
 
-    // Group tasks by status
-    const todoTasks = tasks.filter(t => t.status === 'not_started');
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-    const reviewTasks = tasks.filter(t => t.status === 'under_review');
-    const completedTasks = tasks.filter(t => t.status === 'completed');
+    // Performance Optimization: Memoize task groupings to avoid re-calculating on every render
+    const { todoTasks, inProgressTasks, reviewTasks, completedTasks } = useMemo(() => {
+        return {
+            todoTasks: tasks.filter(t => t.status === 'not_started'),
+            inProgressTasks: tasks.filter(t => t.status === 'in_progress'),
+            reviewTasks: tasks.filter(t => t.status === 'under_review'),
+            completedTasks: tasks.filter(t => t.status === 'completed'),
+        };
+    }, [tasks]);
 
+    // Loading Skeletons
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+            <div className="space-y-6">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">My Tasks</h2>
+                    <p className="text-muted-foreground">View and update your assigned tasks.</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-4">
+                    {[...Array(4)].map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader className="pb-2">
+                                <Skeleton className="h-4 w-24" />
+                            </CardHeader>
+                            <CardContent>
+                                <Skeleton className="h-8 w-12" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-48 mb-2" />
+                        <Skeleton className="h-4 w-64" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {[...Array(5)].map((_, i) => (
+                                <Skeleton key={i} className="h-12 w-full" />
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         );
     }

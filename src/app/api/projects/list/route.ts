@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Project from '@/models/Project';
-import { cookies } from 'next/headers';
 
 export async function GET(request: Request) {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -33,10 +30,15 @@ export async function GET(request: Request) {
 
         const [projects, total] = await Promise.all([
             Project.find(query)
-                .populate('teamLeadId', 'name email')
+                .select('name clientName status priority deadline teamLeadId createdAt description')
+                .populate({
+                    path: 'teamLeadId',
+                    select: 'name email'
+                })
                 .sort({ createdAt: -1 })
                 .skip(skip)
-                .limit(limit),
+                .limit(limit)
+                .lean(),
             Project.countDocuments(query)
         ]);
 

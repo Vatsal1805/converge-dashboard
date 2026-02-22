@@ -61,6 +61,8 @@ const TaskSchema = new Schema<ITask>({
 
 // Indexes for performance optimization
 TaskSchema.index({ assignedTo: 1, status: 1 });
+TaskSchema.index({ assignedTo: 1, deadline: 1 }); // Optimized for "My Tasks" page
+TaskSchema.index({ status: 1, deadline: 1 });    // Optimized for filtering by status
 TaskSchema.index({ deadline: 1 });
 TaskSchema.index({ projectId: 1 });
 TaskSchema.index({ createdBy: 1 });

@@ -38,6 +38,7 @@ const ProjectSchema = new Schema<IProject>({
 // Indexes for performance
 ProjectSchema.index({ teamLeadId: 1 });
 ProjectSchema.index({ status: 1 });
+ProjectSchema.index({ createdAt: -1 }); // Optimized for latest project sorting
 
 const Project: Model<IProject> = mongoose.models.Project || mongoose.model<IProject>('Project', ProjectSchema);
 

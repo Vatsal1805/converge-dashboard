@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/jwt';
+import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Performance from '@/models/Performance';
 import User from '@/models/User';
@@ -9,7 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     try {
         const { id } = await params;
         await connectToDatabase();
-        const performance = await Performance.findById(id).populate('intern reviewer');
+        const performance = await Performance.findById(id).populate('intern reviewer').lean();
 
         if (!performance) {
             return NextResponse.json({ error: 'Performance review not found' }, { status: 404 });
@@ -25,9 +24,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     try {
         const { id } = await params;
         const body = await request.json();
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -67,9 +64,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { id } = await params;
-        const cookieStore = await cookies();
-        const token = cookieStore.get('auth_token')?.value;
-        const session = await verifyToken(token || '');
+        const session = await getUserFromRequest(request);
 
         if (!session) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

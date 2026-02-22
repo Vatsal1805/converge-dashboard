@@ -52,9 +52,18 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    return NextResponse.next();
+    // Performance Optimization: Pass user data to API routes via headers
+    // to avoid redundant JWT verification in API routes.
+    const response = NextResponse.next();
+    if (user) {
+        // We use base64 encoding to ensure the JSON string is safe for header values
+        const userData = Buffer.from(JSON.stringify(user)).toString('base64');
+        response.headers.set('x-user-data', userData);
+    }
+
+    return response;
 }
 
 export const config = {
-    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)', '/api/:path*'],
 };
