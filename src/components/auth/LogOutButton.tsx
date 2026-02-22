@@ -9,6 +9,8 @@ export default function LogOutButton() {
 
     const handleLogout = async () => {
         await fetch('/api/auth/logout', { method: 'POST' });
+        // Clear all local storage on logout to ensure data privacy
+        window.localStorage.clear();
         router.push('/login');
         router.refresh();
     };

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { storage } from '@/lib/storage';
 
 interface User {
     id: string;
@@ -29,6 +30,14 @@ export function SessionProvider({
     const [loading, setLoading] = useState(!initialUser);
 
     useEffect(() => {
+        // Load from cache first
+        if (!initialUser) {
+            const cachedUser = storage.get<User>('user_session');
+            if (cachedUser) {
+                setUser(cachedUser);
+            }
+        }
+
         if (!initialUser) {
             const fetchUser = async () => {
                 try {
@@ -36,6 +45,10 @@ export function SessionProvider({
                     const data = await res.json();
                     if (data.user) {
                         setUser(data.user);
+                        storage.set('user_session', data.user);
+                    } else {
+                        // Clear cache if session is actually invalid
+                        storage.remove('user_session');
                     }
                 } catch (error) {
                     console.error('Failed to fetch session:', error);
@@ -45,6 +58,7 @@ export function SessionProvider({
             };
             fetchUser();
         } else {
+            storage.set('user_session', initialUser);
             setLoading(false);
         }
     }, [initialUser]);

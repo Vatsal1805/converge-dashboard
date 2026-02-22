@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/components/auth/SessionProvider';
+import { storage } from '@/lib/storage';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -63,11 +64,29 @@ export default function ProjectsPage() {
         budget: 0
     });
 
-    const fetchProjects = async () => {
+    const fetchProjects = async (showLoading = true) => {
+        if (showLoading) setLoading(true);
         try {
-            const res = await fetch('/api/projects/list');
+            const lastModified = storage.get<string>('projects_last_modified');
+            const url = lastModified
+                ? `/api/projects/list?since=${encodeURIComponent(lastModified)}`
+                : '/api/projects/list';
+
+            const res = await fetch(url);
             const data = await res.json();
-            setProjects(Array.isArray(data) ? data : (data.projects || []));
+
+            if (data.modified === false) {
+                console.log('Projects not modified, using cache');
+                setLoading(false);
+                return;
+            }
+
+            const projectsList = Array.isArray(data) ? data : (data.projects || []);
+            setProjects(projectsList);
+            storage.set('projects_cache', projectsList);
+            if (data.lastModified) {
+                storage.set('projects_last_modified', data.lastModified);
+            }
         } catch (err) {
             console.error('Failed to fetch projects', err);
         } finally {
@@ -88,7 +107,14 @@ export default function ProjectsPage() {
     };
 
     useEffect(() => {
-        fetchProjects();
+        // Load from cache first for instant display
+        const cachedProjects = storage.get<Project[]>('projects_cache');
+        if (cachedProjects) {
+            setProjects(cachedProjects);
+            setLoading(false);
+        }
+
+        fetchProjects(!cachedProjects); // Only show loading spinner if no cache
         if (currentUser?.role === 'founder' || currentUser?.role === 'teamlead') {
             fetchTeamLeads();
         }

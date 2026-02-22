@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
 
+// Import the models index to ensure all schemas are registered with Mongoose 
+// before any database operations occur. This is CRITICAL for Vercel cold starts.
+import * as Models from '@/models/index';
+
+// We export the models from here as well for convenience, ensuring they are initialized
+export { Models };
+
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {

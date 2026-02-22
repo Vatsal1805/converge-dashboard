@@ -42,10 +42,26 @@ export async function GET(request: Request) {
             }
         }
 
+        const since = searchParams.get('since');
+
+        // Check for latest modification in the results
+        // Optimization: We check Task's updatedAt for intelligence
+        const latestUpdate = await Task.findOne(query)
+            .sort({ updatedAt: -1 })
+            .select('updatedAt')
+            .lean();
+
+        const latestTimestamp = latestUpdate ? (latestUpdate as any).updatedAt.toISOString() : null;
+
+        // If client provided 'since' and nothing changed, return early
+        if (since && latestTimestamp && latestTimestamp <= since) {
+            return NextResponse.json({ modified: false, lastModified: latestTimestamp });
+        }
+
         // Performance Optimization: Use .lean() for faster execution and .select() to reduce payload size
         const [tasks, total] = await Promise.all([
             Task.find(query)
-                .select('title status priority deadline projectId assignedTo internStatus internNote createdAt description')
+                .select('title status priority deadline projectId assignedTo internStatus internNote createdAt updatedAt description')
                 .populate({
                     path: 'projectId',
                     select: 'name clientName'
@@ -63,6 +79,8 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             tasks,
+            modified: true,
+            lastModified: latestTimestamp,
             pagination: {
                 total,
                 page,

@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from '@/components/auth/SessionProvider';
+import { storage } from '@/lib/storage';
 
 interface Task {
     _id: string;
@@ -112,10 +113,29 @@ export default function TasksPage() {
     };
 
     useEffect(() => {
-        const fetchData = async () => {
+        // Load from cache first for instant display
+        const cachedTasks = storage.get<Task[]>('tasks_cache');
+        const cachedProjects = storage.get<Project[]>('projects_dropdown_cache');
+        const cachedUsers = storage.get<User[]>('users_dropdown_cache');
+
+        if (cachedTasks) setTasks(cachedTasks);
+        if (cachedProjects) setProjects(cachedProjects);
+        if (cachedUsers) setUsers(cachedUsers);
+
+        if (cachedTasks && cachedProjects && cachedUsers) {
+            setLoading(false);
+        }
+
+        const fetchData = async (showLoading = true) => {
+            if (showLoading) setLoading(true);
             try {
+                const lastModified = storage.get<string>('tasks_last_modified');
+                const tasksUrl = lastModified
+                    ? `/api/tasks/list?since=${encodeURIComponent(lastModified)}`
+                    : '/api/tasks/list';
+
                 const [tasksRes, projectsRes, usersRes] = await Promise.all([
-                    fetch('/api/tasks/list'),
+                    fetch(tasksUrl),
                     fetch('/api/projects/list'),
                     fetch('/api/users/list?role=intern,teamlead')
                 ]);
@@ -124,16 +144,31 @@ export default function TasksPage() {
                 const projectsData = await projectsRes.json();
                 const usersData = await usersRes.json();
 
-                setTasks(Array.isArray(tasksData) ? tasksData : (tasksData.tasks || []));
-                setProjects(Array.isArray(projectsData) ? projectsData : (projectsData.projects || []));
-                setUsers(Array.isArray(usersData) ? usersData : (usersData.users || []));
+                if (tasksData.modified !== false) {
+                    const tasksList = Array.isArray(tasksData) ? tasksData : (tasksData.tasks || []);
+                    setTasks(tasksList);
+                    storage.set('tasks_cache', tasksList);
+                    if (tasksData.lastModified) {
+                        storage.set('tasks_last_modified', tasksData.lastModified);
+                    }
+                }
+
+                const projectsList = Array.isArray(projectsData) ? projectsData : (projectsData.projects || []);
+                const usersList = Array.isArray(usersData) ? usersData : (usersData.users || []);
+
+                setProjects(projectsList);
+                setUsers(usersList);
+
+                storage.set('projects_dropdown_cache', projectsList);
+                storage.set('users_dropdown_cache', usersList);
             } catch (err) {
                 console.error('Failed to fetch data', err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchData();
+
+        fetchData(!(cachedTasks && cachedProjects && cachedUsers));
     }, []);
 
     const getStatusColor = (status: string) => {

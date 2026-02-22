@@ -28,9 +28,24 @@ export async function GET(request: Request) {
             query = { _id: { $exists: false } };
         }
 
+        const since = searchParams.get('since');
+
+        // Check for latest modification in the results
+        const latestUpdate = await Project.findOne(query)
+            .sort({ updatedAt: -1 })
+            .select('updatedAt')
+            .lean();
+
+        const latestTimestamp = latestUpdate ? (latestUpdate as any).updatedAt.toISOString() : null;
+
+        // If client provided 'since' and nothing changed, return early
+        if (since && latestTimestamp && latestTimestamp <= since) {
+            return NextResponse.json({ modified: false, lastModified: latestTimestamp });
+        }
+
         const [projects, total] = await Promise.all([
             Project.find(query)
-                .select('name clientName status priority deadline teamLeadId createdAt')
+                .select('name clientName status priority deadline teamLeadId createdAt updatedAt')
                 .populate({
                     path: 'teamLeadId',
                     select: 'name email'
@@ -44,6 +59,8 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             projects,
+            modified: true,
+            lastModified: latestTimestamp,
             pagination: {
                 total,
                 page,

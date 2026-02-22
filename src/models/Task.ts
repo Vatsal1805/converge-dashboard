@@ -21,6 +21,7 @@ export interface ITask extends Document {
     reviewNote?: string;
     createdBy: mongoose.Types.ObjectId;
     createdAt: Date;
+    updatedAt: Date;
 }
 
 const TaskSchema = new Schema<ITask>({

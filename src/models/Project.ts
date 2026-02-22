@@ -11,6 +11,7 @@ export interface IProject extends Document {
     budget?: number;
     createdBy: mongoose.Types.ObjectId;
     createdAt: Date;
+    updatedAt: Date;
 }
 
 const ProjectSchema = new Schema<IProject>({
