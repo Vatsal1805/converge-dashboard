@@ -56,3 +56,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    try {
+        const { id } = await params;
+        const cookieStore = await cookies();
+        const token = cookieStore.get('auth_token')?.value;
+        const session = await verifyToken(token || '');
+
+        if (!session || (session as any).role !== 'founder') {
+            return NextResponse.json({ error: 'Forbidden: Only founders can delete leads' }, { status: 403 });
+        }
+
+        await connectToDatabase();
+        const lead = await Lead.findByIdAndDelete(id);
+
+        if (!lead) {
+            return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ message: 'Lead deleted successfully' });
+
+    } catch (error) {
+        console.error('Delete Lead Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}

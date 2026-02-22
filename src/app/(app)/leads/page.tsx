@@ -15,7 +15,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Target, Plus, Search, Phone, Mail, Building2,
-    DollarSign, Loader2, MoreHorizontal, ArrowUpRight
+    DollarSign, Loader2, MoreHorizontal, ArrowUpRight, Trash2
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -405,6 +405,27 @@ export default function LeadsPage() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
+                                            {currentUser?.role === 'founder' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={async () => {
+                                                        if (confirm('Are you sure you want to delete this lead?')) {
+                                                            try {
+                                                                const res = await fetch(`/api/leads/${lead._id}`, { method: 'DELETE' });
+                                                                if (res.ok) {
+                                                                    setLeads(leads.filter(l => l._id !== lead._id));
+                                                                }
+                                                            } catch (err) {
+                                                                console.error('Delete error:', err);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="sm"

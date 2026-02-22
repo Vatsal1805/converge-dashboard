@@ -88,3 +88,37 @@ export async function PATCH(
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+export async function DELETE(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    try {
+        const cookieStore = await cookies();
+        const token = cookieStore.get('auth_token')?.value;
+
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const session = await verifyToken(token);
+        const role = (session as any)?.role;
+
+        if (!session || role !== 'founder') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const { id } = await params;
+        await connectToDatabase();
+
+        const research = await Research.findByIdAndDelete(id);
+
+        if (!research) {
+            return NextResponse.json({ error: 'Research not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ message: 'Research deleted successfully' });
+    } catch (error) {
+        console.error('Delete Research Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}

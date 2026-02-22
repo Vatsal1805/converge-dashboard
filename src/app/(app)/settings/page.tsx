@@ -1,6 +1,5 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSession } from '@/components/auth/SessionProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,17 +15,30 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function SettingsPage() {
+    const { user: currentUser } = useSession();
     const [activeTab, setActiveTab] = useState('profile');
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [error, setError] = useState('');
 
     // Profile Settings
     const [profile, setProfile] = useState({
-        name: 'Founder',
-        email: 'founder@gmail.com',
+        name: '',
+        email: '',
         phone: '',
         timezone: 'UTC',
     });
+
+    useEffect(() => {
+        if (currentUser) {
+            setProfile({
+                name: currentUser.name || '',
+                email: currentUser.email || '',
+                phone: (currentUser as any).phone || '',
+                timezone: (currentUser as any).timezone || 'UTC',
+            });
+        }
+    }, [currentUser]);
 
     // Notification Settings
     const [notifications, setNotifications] = useState({
@@ -44,12 +56,28 @@ export default function SettingsPage() {
     });
 
     const handleSave = async () => {
+        if (!currentUser?.id) return;
         setSaving(true);
-        // Simulate save
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setSaving(false);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+        setError('');
+        try {
+            const res = await fetch(`/api/users/${currentUser.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profile),
+            });
+            if (res.ok) {
+                setSaved(true);
+                setTimeout(() => setSaved(false), 3000);
+            } else {
+                const data = await res.json();
+                setError(data.error || 'Failed to update profile');
+            }
+        } catch (err) {
+            console.error('Failed to save settings', err);
+            setError('Something went wrong');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
@@ -65,6 +93,12 @@ export default function SettingsPage() {
                     <AlertDescription className="text-green-700 dark:text-green-400">
                         Settings saved successfully!
                     </AlertDescription>
+                </Alert>
+            )}
+
+            {error && (
+                <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
                 </Alert>
             )}
 
@@ -235,8 +269,8 @@ export default function SettingsPage() {
                                         key={theme}
                                         onClick={() => setAppearance({ ...appearance, theme })}
                                         className={`p-4 rounded-lg border-2 transition-all ${appearance.theme === theme
-                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                                             }`}
                                     >
                                         <div className="flex flex-col items-center gap-2">

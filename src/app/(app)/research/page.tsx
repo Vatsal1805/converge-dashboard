@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
     Search, Plus, FileText, Upload, Download,
     Folder, Star, Clock, Grid, List, ExternalLink,
-    ArrowLeft, Check, X, Loader2, BookOpen
+    ArrowLeft, Check, X, Loader2, BookOpen, Trash2
 } from 'lucide-react';
+import { useSession } from '@/components/auth/SessionProvider';
 
 interface Research {
     _id: string;
@@ -38,6 +39,7 @@ interface Project {
 }
 
 export default function ResearchPage() {
+    const { user: currentUser } = useSession();
     const [research, setResearch] = useState<Research[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
@@ -110,6 +112,19 @@ export default function ResearchPage() {
             console.error('Failed to upload research', err);
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this research?')) return;
+        try {
+            const res = await fetch(`/api/research/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                setResearch(research.filter(r => r._id !== id));
+            }
+        } catch (err) {
+            console.error('Failed to delete research', err);
         }
     };
 
@@ -429,9 +444,21 @@ export default function ResearchPage() {
                                     <Badge variant="outline" className={getStatusColor(item.status)}>
                                         {item.status}
                                     </Badge>
-                                    <Badge variant="secondary" className="text-xs">
-                                        {item.fileType.toUpperCase()}
-                                    </Badge>
+                                    <div className="flex gap-1">
+                                        {currentUser?.role === 'founder' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 z-10"
+                                                onClick={(e) => handleDelete(e, item._id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        <Badge variant="secondary" className="text-xs">
+                                            {item.fileType.toUpperCase()}
+                                        </Badge>
+                                    </div>
                                 </div>
                                 <CardTitle className="text-base mt-2 group-hover:text-blue-600 transition-colors">
                                     {item.title}
@@ -475,6 +502,16 @@ export default function ResearchPage() {
                                         <Badge variant="outline" className={getStatusColor(item.status)}>
                                             {item.status}
                                         </Badge>
+                                        {currentUser?.role === 'founder' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 z-10"
+                                                onClick={(e) => handleDelete(e, item._id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                         <Button variant="ghost" size="sm" className="text-black hover:text-black">View</Button>
                                     </div>
                                 </div>

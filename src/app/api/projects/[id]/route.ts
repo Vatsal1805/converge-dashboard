@@ -53,3 +53,32 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    try {
+        const { id } = await params;
+        const body = await request.json();
+        const session = await getUserFromRequest(request);
+
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const role = (session as any).role;
+        if (role !== 'founder' && role !== 'teamlead') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        await connectToDatabase();
+        const project = await Project.findByIdAndUpdate(id, body, { new: true })
+            .populate('teamLeadId', 'name email');
+
+        if (!project) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+
+        return NextResponse.json({ project });
+    } catch (error) {
+        console.error('Update Project Error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}

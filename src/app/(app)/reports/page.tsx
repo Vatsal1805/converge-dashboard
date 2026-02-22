@@ -6,9 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-    Users, FolderKanban, CheckSquare, Target, TrendingUp, 
-    TrendingDown, AlertTriangle, DollarSign, Loader2, 
+import {
+    Users, FolderKanban, CheckSquare, Target, TrendingUp,
+    TrendingDown, AlertTriangle, DollarSign, Loader2,
     BarChart3, PieChart, Activity, Award
 } from 'lucide-react';
 
@@ -25,7 +25,7 @@ interface Analytics {
         pendingTasks: number;
         inProgressTasks: number;
         totalLeads: number;
-        convertedLeads: number;
+        wonLeads: number;
         overdueTasks: number;
         taskCompletionRate: number;
         leadConversionRate: number;
@@ -236,11 +236,11 @@ export default function ReportsPage() {
                                     <div key={item._id} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Badge variant="outline" className={
-                                                item._id === 'converted' ? 'bg-green-100 text-green-700' :
-                                                item._id === 'new' ? 'bg-blue-100 text-blue-700' :
-                                                item._id === 'contacted' ? 'bg-amber-100 text-amber-700' :
-                                                item._id === 'lost' ? 'bg-red-100 text-red-700' :
-                                                'bg-slate-100 text-slate-700'
+                                                item._id === 'won' ? 'bg-green-100 text-green-700' :
+                                                    item._id === 'new' ? 'bg-blue-100 text-blue-700' :
+                                                        item._id === 'contacted' ? 'bg-amber-100 text-amber-700' :
+                                                            item._id === 'lost' ? 'bg-red-100 text-red-700' :
+                                                                'bg-slate-100 text-slate-700'
                                             }>
                                                 {item._id || 'Unknown'}
                                             </Badge>
@@ -283,12 +283,11 @@ export default function ReportsPage() {
                                     <div className="space-y-4">
                                         {topPerformers.map((performer, index) => (
                                             <div key={performer._id} className="flex items-center gap-4">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                                    index === 0 ? 'bg-amber-100 text-amber-700' :
-                                                    index === 1 ? 'bg-slate-200 text-slate-700' :
-                                                    index === 2 ? 'bg-orange-100 text-orange-700' :
-                                                    'bg-slate-100 text-slate-600'
-                                                }`}>
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${index === 0 ? 'bg-amber-100 text-amber-700' :
+                                                        index === 1 ? 'bg-slate-200 text-slate-700' :
+                                                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-slate-100 text-slate-600'
+                                                    }`}>
                                                     {index + 1}
                                                 </div>
                                                 <div className="flex-1">
@@ -297,8 +296,8 @@ export default function ReportsPage() {
                                                 </div>
                                                 <Badge className={
                                                     performer.performanceScore >= 80 ? 'bg-green-100 text-green-700' :
-                                                    performer.performanceScore >= 60 ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-amber-100 text-amber-700'
+                                                        performer.performanceScore >= 60 ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-amber-100 text-amber-700'
                                                 }>
                                                     {performer.performanceScore}%
                                                 </Badge>
@@ -441,8 +440,8 @@ export default function ReportsPage() {
                                 <CardTitle className="text-sm font-medium text-muted-foreground">Converted</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-3xl font-bold text-green-600">{overview.convertedLeads}</div>
-                                <p className="text-xs text-muted-foreground">Successfully converted</p>
+                                <div className="text-3xl font-bold text-green-600">{overview.wonLeads}</div>
+                                <p className="text-xs text-muted-foreground">Successfully won</p>
                             </CardContent>
                         </Card>
                         <Card>

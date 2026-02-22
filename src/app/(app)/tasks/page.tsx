@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { CheckSquare, Plus, Search, Calendar, User as UserIcon, Loader2, AlertTriangle, AlertCircle, CircleDot, Clock } from 'lucide-react';
+import { CheckSquare, Plus, Search, Calendar, User as UserIcon, Loader2, AlertTriangle, AlertCircle, CircleDot, Clock, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -384,7 +384,28 @@ export default function TasksPage() {
                                                 </div>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right flex items-center justify-end gap-2">
+                                            {currentUser?.role === 'founder' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                    onClick={async () => {
+                                                        if (confirm('Are you sure you want to delete this task?')) {
+                                                            try {
+                                                                const res = await fetch(`/api/tasks/${task._id}`, { method: 'DELETE' });
+                                                                if (res.ok) {
+                                                                    setTasks(tasks.filter(t => t._id !== task._id));
+                                                                }
+                                                            } catch (err) {
+                                                                console.error('Delete error:', err);
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="ghost"
                                                 size="sm"

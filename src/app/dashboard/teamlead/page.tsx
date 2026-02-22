@@ -3,16 +3,33 @@ import { Briefcase, CheckSquare, Users } from 'lucide-react';
 import connectToDatabase from '@/lib/db';
 import Project from '@/models/Project';
 import Task from '@/models/Task';
+import User from '@/models/User';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 
 async function getTeamLeadStats(userId: string) {
     await connectToDatabase();
 
+    // Fetch team lead's department
+    const teamLead = await User.findById(userId).select('department').lean();
+
+    let activeTasksQuery = { status: { $in: ['not_started', 'in_progress', 'working', 'on_hold', 'under_review'] } };
+
+    if (teamLead) {
+        // Find all interns in the same department
+        const interns = await User.find({
+            department: teamLead.department,
+            role: 'intern'
+        }).select('_id').lean();
+
+        const internIds = interns.map((i: any) => i._id);
+        (activeTasksQuery as any).assignedTo = { $in: internIds };
+    }
+
     // FETCH DATA IN PARALLEL
     const [myProjects, activeTasks] = await Promise.all([
         Project.countDocuments({ teamLeadId: userId, status: 'active' }),
-        Task.countDocuments({ status: { $in: ['not_started', 'in_progress'] } })
+        Task.countDocuments(activeTasksQuery)
     ]);
 
     return { myProjects, activeTasks };
