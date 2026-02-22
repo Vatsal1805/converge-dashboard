@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Research from '@/models/Research';
+import User from '@/models/User';
+import Project from '@/models/Project';
 import { cookies } from 'next/headers';
 
 export async function GET(

@@ -3,6 +3,7 @@ import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Task from '@/models/Task';
 import User from '@/models/User';
+import Project from '@/models/Project';
 import mongoose from 'mongoose';
 
 export async function GET(request: Request) {

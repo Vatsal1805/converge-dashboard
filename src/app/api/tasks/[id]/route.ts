@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Task from '@/models/Task';
+import Project from '@/models/Project';
+import User from '@/models/User';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
