@@ -92,6 +92,16 @@ export default function LeadsPage() {
         setSubmitting(true);
         setError('');
 
+        // Validate phone number if provided
+        if (newLead.phone && newLead.phone.trim() !== '') {
+            const phoneDigits = newLead.phone.replace(/\D/g, '');
+            if (phoneDigits.length !== 10) {
+                setError('Phone number must be exactly 10 digits');
+                setSubmitting(false);
+                return;
+            }
+        }
+
         try {
             const res = await fetch('/api/leads/create', {
                 method: 'POST',
@@ -108,9 +118,11 @@ export default function LeadsPage() {
                 throw new Error(data.error || 'Failed to create lead');
             }
 
-            setCreateOpen(false);
+            // Reset form and close dialog
             setNewLead({ name: '', company: '', email: '', phone: '', dealValue: 0, status: 'new' });
+            setError('');
             fetchData();
+            setCreateOpen(false);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -157,7 +169,13 @@ export default function LeadsPage() {
                 </div>
 
                 {(currentUser?.role === 'founder' || currentUser?.role === 'teamlead') && (
-                    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                    <Dialog open={createOpen} onOpenChange={(open) => {
+                        setCreateOpen(open);
+                        if (!open) {
+                            setError('');
+                            setNewLead({ name: '', company: '', email: '', phone: '', dealValue: 0, status: 'new' });
+                        }
+                    }}>
                         <DialogTrigger asChild>
                             <Button className="text-black hover:text-black">
                                 <Plus className="mr-2 h-4 w-4" />
@@ -214,13 +232,23 @@ export default function LeadsPage() {
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="phone">Phone</Label>
+                                            <Label htmlFor="phone">Phone (10 digits)</Label>
                                             <Input
                                                 id="phone"
+                                                type="tel"
                                                 value={newLead.phone}
-                                                onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
-                                                placeholder="+1 555 000 0000"
+                                                onChange={e => {
+                                                    const value = e.target.value.replace(/\D/g, '');
+                                                    if (value.length <= 10) {
+                                                        setNewLead({ ...newLead, phone: value });
+                                                    }
+                                                }}
+                                                placeholder="1234567890"
+                                                maxLength={10}
                                             />
+                                            {newLead.phone && newLead.phone.length > 0 && newLead.phone.length !== 10 && (
+                                                <p className="text-xs text-red-600">Must be exactly 10 digits</p>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
@@ -252,6 +280,15 @@ export default function LeadsPage() {
                                     </div>
                                 </div>
                                 <DialogFooter>
+                                    <Button 
+                                        type="button" 
+                                        variant="outline"
+                                        onClick={() => setCreateOpen(false)}
+                                        disabled={submitting}
+                                        className="text-black hover:text-black"
+                                    >
+                                        Cancel
+                                    </Button>
                                     <Button type="submit" disabled={submitting} className="text-black hover:text-black">
                                         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Add Lead

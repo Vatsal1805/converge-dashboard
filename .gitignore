@@ -33,6 +33,19 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# backups
+/backups
+*.backup
+
+# local development seed scripts (not original repo files)
+/scripts/seed-interns.ts
+/scripts/seed-teamleads.ts
+/scripts/seed-teams.ts
+
+# documentation folders (shared with team separately)
+/doc
+/docs
+
 # vercel
 .vercel
 

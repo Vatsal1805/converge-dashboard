@@ -6,6 +6,7 @@ import Project from '@/models/Project';
 import User from '@/models/User';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
+import { inAppNotifications } from '@/lib/notifications';
 
 const createTaskSchema = z.object({
     title: z.string().min(2),
@@ -48,6 +49,13 @@ export async function POST(request: Request) {
             ...data,
             status: 'not_started',
             createdBy: (session as any).id
+        });
+
+        // Send notification to assigned user
+        await inAppNotifications.taskAssigned({
+            userId: data.assignedTo,
+            taskId: task._id.toString(),
+            taskTitle: data.title
         });
 
         return NextResponse.json({ task }, { status: 201 });

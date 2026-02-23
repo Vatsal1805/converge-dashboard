@@ -1,6 +1,9 @@
 import { SignJWT, jwtVerify } from 'jose';
 
-const secretStr = process.env.JWT_SECRET || 'dev_secret_key_123';
+const secretStr = process.env.JWT_SECRET;
+if (!secretStr) {
+    throw new Error('JWT_SECRET is not defined in .env.local');
+}
 const JWT_SECRET = new TextEncoder().encode(secretStr);
 const ALG = 'HS256';
 

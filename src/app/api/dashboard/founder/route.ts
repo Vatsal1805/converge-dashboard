@@ -16,11 +16,16 @@ export async function GET(request: Request) {
         }
 
         // FETCH DATA IN PARALLEL
-        const [totalUsers, totalProjects, activeTasks, wonLeads] = await Promise.all([
+        const [totalUsers, totalProjects, activeTasks, wonLeads, projects] = await Promise.all([
             User.countDocuments(),
             Project.countDocuments({ status: { $in: ['planning', 'active'] } }),
             Task.countDocuments({ status: { $in: ['not_started', 'in_progress', 'under_review', 'working'] } }),
-            Lead.find({ status: 'won' })
+            Lead.find({ status: 'won' }),
+            Project.find()
+                .populate('teamLeadIds', 'name email')
+                .populate('members', 'name email')
+                .sort({ createdAt: -1 })
+                .lean()
         ]);
 
         const revenue = wonLeads.reduce((acc, lead) => acc + (lead.dealValue || 0), 0);
@@ -29,7 +34,8 @@ export async function GET(request: Request) {
             totalUsers,
             totalProjects,
             activeTasks,
-            revenue
+            revenue,
+            projects
         });
     } catch (error: any) {
         console.error('Founder Dashboard API Error:', error);

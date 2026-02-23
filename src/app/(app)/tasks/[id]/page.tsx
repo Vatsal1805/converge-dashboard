@@ -37,7 +37,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         const fetchData = async () => {
             try {
                 const [taskRes, userRes] = await Promise.all([
-                    fetch(`/api/tasks/${id}`),
+                    fetch("/api/tasks/" + id),
                     fetch('/api/auth/me')
                 ]);
 
@@ -59,7 +59,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         if (!confirm('Are you sure you want to permanently delete this task?')) return;
         setDeleting(true);
         try {
-            const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+            const res = await fetch("/api/tasks/" + id, { method: 'DELETE' });
             if (res.ok) {
                 router.push('/tasks');
             } else {
@@ -74,7 +74,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
     const handleUploadAttachment = async (name: string, url: string) => {
         try {
-            const res = await fetch(`/api/tasks/${id}/attachments`, {
+            const res = await fetch("/api/tasks/" + id + "/attachments", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, url, type: url.split('.').pop() || 'file' })
@@ -91,7 +91,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
     const handleStatusUpdate = async (newStatus: string) => {
         try {
-            const res = await fetch(`/api/tasks/${id}`, {
+            const res = await fetch("/api/tasks/" + id, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
