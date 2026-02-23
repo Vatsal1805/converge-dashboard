@@ -140,16 +140,12 @@ export async function PATCH(
         ...project.members.map((m: any) => m._id.toString())
       ];
       
-      await Promise.all(
-        allMembers.map(userId =>
-          inAppNotifications.projectStatusChanged({
-            userId,
-            projectId: project._id.toString(),
-            projectName: project.name,
-            newStatus: body.status
-          })
-        )
-      );
+      await inAppNotifications.projectStatusChanged({
+        userIds: allMembers,
+        projectId: project._id.toString(),
+        projectName: project.name,
+        newStatus: body.status
+      });
     }
 
     return NextResponse.json({ project });

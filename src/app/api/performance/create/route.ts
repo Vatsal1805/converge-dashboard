@@ -3,82 +3,98 @@ import { verifyToken } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Performance from '@/models/Performance';
 import User from '@/models/User';
-import { z } from 'zod';
 import { cookies } from 'next/headers';
-
-const createPerformanceSchema = z.object({
-    intern: z.string(),
-    period: z.string(),
-    metrics: z.object({
-        taskCompletion: z.number().min(1).max(10),
-        quality: z.number().min(1).max(10),
-        communication: z.number().min(1).max(10),
-        punctuality: z.number().min(1).max(10),
-        initiative: z.number().min(1).max(10),
-    }),
-    feedback: z.string().optional(),
-    goals: z.string().optional(),
-});
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
+import { UnauthorizedError, ForbiddenError, NotFoundError, ConflictError, handleAPIError } from '@/lib/errors';
+import { performanceSchemas, parseBody } from '@/lib/validation';
+import { audit } from '@/lib/audit';
+import { cache } from '@/lib/cache';
 
 export async function POST(request: Request) {
     try {
+        // ✅ Rate limiting
+        const rateLimitResult = await rateLimit(request, {
+            maxRequests: 30,
+            windowMs: 15 * 60 * 1000,
+        });
+
+        if (rateLimitResult.limited) {
+            return rateLimitResponse(rateLimitResult.resetTime);
+        }
+
         const cookieStore = await cookies();
         const token = cookieStore.get('auth_token')?.value;
 
         if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            throw new UnauthorizedError();
         }
 
         const session = await verifyToken(token);
         const role = (session as any)?.role;
 
         if (!session || (role !== 'founder' && role !== 'teamlead')) {
-            return NextResponse.json({ error: 'Forbidden: Only Founder or Team Lead can give reviews' }, { status: 403 });
+            throw new ForbiddenError('Only Founder or Team Lead can give reviews');
         }
 
-        const body = await request.json();
-        const data = createPerformanceSchema.parse(body);
+        // ✅ Centralized validation (using internId instead of intern)
+        const { internId, period, metrics, feedback, goals } = await parseBody(request, performanceSchemas.create);
 
         await connectToDatabase();
 
         // Verify intern exists
-        const intern = await User.findById(data.intern);
+        const intern = await User.findById(internId);
         if (!intern || intern.role !== 'intern') {
-            return NextResponse.json({ error: 'Invalid intern ID' }, { status: 400 });
+            throw new NotFoundError('Invalid intern ID');
         }
 
         // Check if review already exists for this period
         const existing = await Performance.findOne({
-            intern: data.intern,
-            period: data.period,
+            intern: internId,
+            period: period,
         });
 
         if (existing) {
-            return NextResponse.json({ error: 'Performance review already exists for this period' }, { status: 409 });
+            throw new ConflictError('Performance review already exists for this period');
         }
 
         const performance = await Performance.create({
-            ...data,
+            intern: internId,
+            period,
+            metrics,
+            feedback,
+            goals,
             reviewer: (session as any).id,
         });
 
+        // ✅ Audit logging
+        await audit.performanceReviewed({
+            reviewerId: (session as any).id,
+            reviewerName: (session as any).name,
+            reviewerRole: (session as any).role,
+            performanceId: performance._id.toString(),
+            internId: internId,
+            period: period,
+            score: performance.overallScore,
+            request,
+        });
+
+        // ✅ Invalidate cache
+        cache.invalidateByPrefix('performance:');
+
         // Update user's performance score
-        const allPerformances = await Performance.find({ intern: data.intern });
+        const allPerformances = await Performance.find({ intern: internId });
         const avgScore = Math.round(
             allPerformances.reduce((sum, p) => sum + p.overallScore, 0) / allPerformances.length
         );
-        await User.findByIdAndUpdate(data.intern, { performanceScore: avgScore });
+        await User.findByIdAndUpdate(internId, { performanceScore: avgScore });
 
         const populated = await Performance.findById(performance._id)
             .populate('intern', 'name email department')
             .populate('reviewer', 'name email role');
 
         return NextResponse.json({ performance: populated }, { status: 201 });
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: error.issues }, { status: 400 });
-        }
-        console.error('Create Performance Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: unknown) {
+        // ✅ Centralized error handling
+        return handleAPIError(error);
     }
 }

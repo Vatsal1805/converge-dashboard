@@ -4,12 +4,26 @@ import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import { signToken } from "@/lib/auth";
 import { getUserFromRequest } from "@/lib/jwt";
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
+import { ConflictError, NotFoundError, handleAPIError } from '@/lib/errors';
+import { audit } from '@/lib/audit';
+import { cache } from '@/lib/cache';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    // ✅ Rate limiting
+    const rateLimitResult = await rateLimit(request, {
+      maxRequests: 30,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetTime);
+    }
+
     await dbConnect();
     const { id } = await params;
     const body = await request.json();
@@ -32,10 +46,7 @@ export async function PUT(
     if (email) {
       const existingUser = await User.findOne({ email, _id: { $ne: id } });
       if (existingUser) {
-        return NextResponse.json(
-          { error: "Email already in use" },
-          { status: 400 },
-        );
+        throw new ConflictError('Email already in use');
       }
     }
 
@@ -65,11 +76,27 @@ export async function PUT(
     }).select("-password");
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      throw new NotFoundError('User not found');
     }
 
-    // Check if the user is updating their own profile
+    // ✅ Audit logging
     const currentUser = await getUserFromRequest(request);
+    if (currentUser) {
+      await audit.userUpdated({
+        updaterId: currentUser.id?.toString() || '',
+        updaterName: currentUser.name || '',
+        updaterRole: currentUser.role as any,
+        userId: id,
+        changes: updateData,
+        request,
+      });
+    }
+
+    // ✅ Invalidate cache
+    cache.invalidate(`user:${id}`);
+    cache.invalidateByPrefix('users:list:');
+
+    // Check if the user is updating their own profile
     const isUpdatingSelf =
       currentUser && currentUser.id?.toString() === id?.toString();
 

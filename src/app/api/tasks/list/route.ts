@@ -5,13 +5,25 @@ import Task from "@/models/Task";
 import User from "@/models/User";
 import Project from "@/models/Project";
 import { Types } from "mongoose";
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
+import { UnauthorizedError, handleAPIError } from '@/lib/errors';
 
 export async function GET(request: Request) {
   try {
+    // ✅ Rate limiting
+    const rateLimitResult = await rateLimit(request, {
+      maxRequests: 100,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetTime);
+    }
+
     const session = await getUserFromRequest(request);
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      throw new UnauthorizedError();
     }
 
     await connectToDatabase();
@@ -96,11 +108,8 @@ export async function GET(request: Request) {
         pages: Math.ceil(total / limit),
       },
     });
-  } catch (error) {
-    console.error("List Tasks Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    // ✅ Centralized error handling
+    return handleAPIError(error);
   }
 }

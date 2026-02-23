@@ -2,30 +2,34 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import connectToDatabase from '@/lib/db';
 import Lead from '@/models/Lead';
-import { z } from 'zod';
 import { cookies } from 'next/headers';
-
-const createLeadSchema = z.object({
-    name: z.string().min(2),
-    company: z.string().min(2),
-    email: z.string().email(),
-    phone: z.string().optional(),
-    dealValue: z.number().nonnegative(),
-    status: z.enum(['new', 'contacted', 'qualified', 'proposal', 'won', 'lost']).optional(),
-});
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
+import { UnauthorizedError, ForbiddenError, handleAPIError } from '@/lib/errors';
+import { leadSchemas, parseBody } from '@/lib/validation';
+import { cache } from '@/lib/cache';
 
 export async function POST(request: Request) {
     try {
+        // ✅ Rate limiting
+        const rateLimitResult = await rateLimit(request, {
+            maxRequests: 40,
+            windowMs: 15 * 60 * 1000,
+        });
+
+        if (rateLimitResult.limited) {
+            return rateLimitResponse(rateLimitResult.resetTime);
+        }
+
         const cookieStore = await cookies();
         const token = cookieStore.get('auth_token')?.value;
         const session = await verifyToken(token || '');
 
         if (!session || ((session as any).role !== 'founder' && (session as any).role !== 'teamlead')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            throw new ForbiddenError('Only founders and team leads can create leads');
         }
 
-        const body = await request.json();
-        const data = createLeadSchema.parse(body);
+        // ✅ Centralized validation
+        const data = await parseBody(request, leadSchemas.create);
 
         await connectToDatabase();
 
@@ -35,13 +39,13 @@ export async function POST(request: Request) {
             assignedTo: (session as any).role === 'teamlead' ? (session as any).id : undefined
         });
 
+        // ✅ Invalidate cache
+        cache.invalidateByPrefix('leads:');
+
         return NextResponse.json({ lead }, { status: 201 });
 
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return NextResponse.json({ error: error.issues }, { status: 400 });
-        }
-        console.error('Create Lead Error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: unknown) {
+        // ✅ Centralized error handling
+        return handleAPIError(error);
     }
 }

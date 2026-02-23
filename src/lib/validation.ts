@@ -128,6 +128,7 @@ export const projectSchemas = {
     teamLeadIds: z
       .array(validators.id)
       .min(1, "At least one team lead required"),
+    members: z.array(validators.id).optional(),
     deadline: validators.date,
     priority: validators.taskPriority,
     budget: validators.positiveNumber.optional(),

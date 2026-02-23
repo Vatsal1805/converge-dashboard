@@ -38,7 +38,6 @@ const ProjectSchema = new Schema<IProject>(
   },
   {
     timestamps: true,
-    strictPopulate: false,
   },
 );
 

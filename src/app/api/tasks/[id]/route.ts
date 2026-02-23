@@ -5,17 +5,30 @@ import Task from "@/models/Task";
 import Project from "@/models/Project";
 import User from "@/models/User";
 import { inAppNotifications } from "@/lib/notifications";
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
+import { UnauthorizedError, NotFoundError, handleAPIError } from '@/lib/errors';
+import { cache } from '@/lib/cache';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    // ✅ Rate limiting
+    const rateLimitResult = await rateLimit(request, {
+      maxRequests: 100,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetTime);
+    }
+
     const { id } = await params;
     const session = await getUserFromRequest(request);
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      throw new UnauthorizedError();
     }
 
     await connectToDatabase();
@@ -26,16 +39,13 @@ export async function GET(
       .lean();
 
     if (!task) {
-      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+      throw new NotFoundError('Task not found');
     }
 
     return NextResponse.json({ task });
-  } catch (error) {
-    console.error("Fetch Task Detail Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    // ✅ Centralized error handling
+    return handleAPIError(error);
   }
 }
 
@@ -44,6 +54,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    // ✅ Rate limiting
+    const rateLimitResult = await rateLimit(request, {
+      maxRequests: 30,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetTime);
+    }
+
     const { id } = await params;
     const session = await getUserFromRequest(request);
 

@@ -2,66 +2,42 @@ import { NextResponse } from "next/server";
 import connectToDatabase from "@/lib/db";
 import User from "@/models/User";
 import { comparePassword, signToken } from "@/lib/auth";
-import { z } from "zod";
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-});
+import { rateLimit, rateLimitResponse } from "@/lib/rateLimit";
+import { UnauthorizedError, ForbiddenError, handleAPIError, ValidationError } from "@/lib/errors";
+import { userSchemas, parseBody } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
-    let body;
-    try {
-      body = await request.json();
-    } catch (parseError) {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
+    // ✅ Rate limiting: Prevent brute force attacks
+    const rateLimitResult = await rateLimit(request, {
+      maxRequests: 5, // Only 5 login attempts
+      windowMs: 15 * 60 * 1000, // per 15 minutes
+    });
+
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetTime);
     }
 
-    if (!body || typeof body !== "object") {
-      return NextResponse.json(
-        { error: "Request body is required" },
-        { status: 400 },
-      );
-    }
-
-    const { email, password } = loginSchema.parse(body);
+    // ✅ Centralized validation
+    const { email, password } = await parseBody(request, userSchemas.login);
 
     await connectToDatabase();
 
     const user = await User.findOne({ email });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 },
-      );
+    // ✅ Better error handling
+    if (!user || !user.password) {
+      throw new UnauthorizedError("Invalid credentials");
     }
 
     if (user.status === "inactive") {
-      return NextResponse.json(
-        { error: "Account is inactive" },
-        { status: 403 },
-      );
-    }
-
-    if (!user.password) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 },
-      );
+      throw new ForbiddenError("Account is inactive");
     }
 
     const isValid = await comparePassword(password, user.password);
 
     if (!isValid) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 },
-      );
+      throw new UnauthorizedError("Invalid credentials");
     }
 
     // Generate token first to reduce perceived latency
@@ -108,20 +84,8 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const errorMessages = error.issues
-        .map((e: z.ZodIssue) => `${e.path.join(".")}: ${e.message}`)
-        .join(", ");
-      return NextResponse.json(
-        { error: `Invalid input: ${errorMessages}` },
-        { status: 400 },
-      );
-    }
-    console.error("Login error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    // ✅ Centralized error handling
+    return handleAPIError(error);
   }
 }

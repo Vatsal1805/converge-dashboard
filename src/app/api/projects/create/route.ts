@@ -3,35 +3,36 @@ import { verifyToken } from "@/lib/auth";
 import connectToDatabase from "@/lib/db";
 import Project from "@/models/Project";
 import User from "@/models/User";
-import { z } from "zod";
 import { cookies } from "next/headers";
 import { inAppNotifications, createBulkNotifications } from "@/lib/notifications";
-
-const createProjectSchema = z.object({
-  name: z.string().min(2),
-  clientName: z.string().min(2),
-  description: z.string().optional(),
-  teamLeadIds: z
-    .array(z.string())
-    .min(1, "At least one team lead must be assigned"),
-  members: z.array(z.string()).optional(), // Intern IDs assigned to this project
-  deadline: z.string().transform((str) => new Date(str)),
-  priority: z.enum(["low", "medium", "high"]),
-  budget: z.number().nonnegative().optional(),
-});
+import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
+import { UnauthorizedError, ForbiddenError, NotFoundError, handleAPIError } from '@/lib/errors';
+import { projectSchemas, parseBody } from '@/lib/validation';
+import { audit } from '@/lib/audit';
+import { cache } from '@/lib/cache';
 
 export async function POST(request: Request) {
   try {
+    // ✅ Rate limiting
+    const rateLimitResult = await rateLimit(request, {
+      maxRequests: 30,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (rateLimitResult.limited) {
+      return rateLimitResponse(rateLimitResult.resetTime);
+    }
+
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
     const session = await verifyToken(token || "");
 
     if (!session || (session as any).role !== "founder") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      throw new ForbiddenError('Only founders can create projects');
     }
 
-    const body = await request.json();
-    const data = createProjectSchema.parse(body);
+    // ✅ Centralized validation
+    const data = await parseBody(request, projectSchemas.create);
 
     await connectToDatabase();
 
@@ -42,10 +43,7 @@ export async function POST(request: Request) {
     });
 
     if (teamLeads.length !== data.teamLeadIds.length) {
-      return NextResponse.json(
-        { error: "One or more invalid Team Lead IDs" },
-        { status: 400 },
-      );
+      throw new NotFoundError('One or more invalid Team Lead IDs');
     }
 
     // Verify all members (interns) exist and have correct role
@@ -56,10 +54,7 @@ export async function POST(request: Request) {
       });
 
       if (members.length !== data.members.length) {
-        return NextResponse.json(
-          { error: "One or more invalid intern IDs" },
-          { status: 400 },
-        );
+        throw new NotFoundError('One or more invalid intern IDs');
       }
     }
 
@@ -68,6 +63,19 @@ export async function POST(request: Request) {
       members: data.members || [],
       createdBy: (session as any).id,
     });
+
+    // ✅ Audit logging
+    await audit.projectCreated({
+      creatorId: (session as any).id,
+      creatorName: (session as any).name,
+      creatorRole: (session as any).role,
+      projectId: project._id.toString(),
+      projectData: data,
+      request,
+    });
+
+    // ✅ Invalidate project cache
+    cache.invalidateByPrefix('projects:');
 
     // Send notifications to team leads and members
     const allAssignees = [...data.teamLeadIds, ...(data.members || [])];
@@ -82,14 +90,8 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({ project }, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues }, { status: 400 });
-    }
-    console.error("Create Project Error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    // ✅ Centralized error handling
+    return handleAPIError(error);
   }
 }
