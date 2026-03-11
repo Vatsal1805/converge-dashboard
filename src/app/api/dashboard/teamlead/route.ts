@@ -12,14 +12,22 @@ export async function GET(request: Request) {
 
     const user = await getUserFromRequest(request);
     if (!user || user.role !== "teamlead") {
+      console.error("Team Lead Dashboard: Unauthorized access attempt", user);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = new Types.ObjectId(user.id);
+    console.log("Team Lead Dashboard: Fetching data for user", user.id);
 
     // 1. Get all projects where this user is one of the Team Leads
     const myProjects = await Project.find({ teamLeadIds: userId }).lean();
     const projectIds = myProjects.map((p) => p._id);
+    console.log(
+      "Team Lead Dashboard: Found",
+      myProjects.length,
+      "projects for user",
+      user.id,
+    );
 
     // 2. Get all tasks under these projects
     // Important: DO NOT filter by assignedTo for team lead.
@@ -28,6 +36,13 @@ export async function GET(request: Request) {
       .populate("projectId", "name")
       .sort({ updatedAt: -1 })
       .lean();
+    console.log(
+      "Team Lead Dashboard: Found",
+      tasks.length,
+      "tasks across",
+      projectIds.length,
+      "projects",
+    );
 
     // 3. Calculate stats
     const relevantProjectsCount = myProjects.filter((p) =>

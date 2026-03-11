@@ -11,26 +11,79 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import connectToDatabase from "@/lib/db";
+import Project from "@/models/Project";
+import Task from "@/models/Task";
+import { verifyToken } from "@/lib/auth";
+import { Types } from "mongoose";
 
 async function getTeamLeadData(token: string) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL || ""}/api/dashboard/teamlead`,
-    {
-      headers: {
-        Cookie: `auth_token=${token}`,
-      },
-    },
-  );
+  try {
+    // Directly access database from server component
+    const session = await verifyToken(token);
 
-  if (!res.ok) {
+    if (!session || (session as any).role !== "teamlead") {
+      console.error("Team Lead Dashboard: Unauthorized access");
+      return {
+        projects: [],
+        tasks: [],
+        stats: { myActiveProjects: 0, teamActiveTasks: 0 },
+      };
+    }
+
+    await connectToDatabase();
+
+    const userId = new Types.ObjectId((session as any).id);
+    console.log(
+      "Team Lead Dashboard: Fetching data for user",
+      (session as any).id,
+    );
+
+    // Get all projects where this user is one of the Team Leads
+    const myProjects = await Project.find({ teamLeadIds: userId })
+      .populate("teamLeadIds", "name email")
+      .populate("members", "name email department")
+      .lean();
+
+    const projectIds = myProjects.map((p) => p._id);
+    console.log("Team Lead Dashboard: Found", myProjects.length, "projects");
+
+    // Get all tasks under these projects
+    const tasks = await Task.find({ projectId: { $in: projectIds } })
+      .populate("assignedTo", "name email avatar")
+      .populate("projectId", "name")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    console.log("Team Lead Dashboard: Found", tasks.length, "tasks");
+
+    // Calculate stats
+    const relevantProjectsCount = myProjects.filter((p: any) =>
+      ["planning", "active"].includes(p.status),
+    ).length;
+
+    const activeTasksCount = tasks.filter((t: any) =>
+      ["not_started", "in_progress", "working", "under_review"].includes(
+        t.status,
+      ),
+    ).length;
+
+    return {
+      projects: JSON.parse(JSON.stringify(myProjects)), // Serialize for client
+      tasks: JSON.parse(JSON.stringify(tasks)),
+      stats: {
+        myActiveProjects: relevantProjectsCount,
+        teamActiveTasks: activeTasksCount,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to fetch team lead data:", error);
     return {
       projects: [],
       tasks: [],
       stats: { myActiveProjects: 0, teamActiveTasks: 0 },
     };
   }
-
-  return res.json();
 }
 
 function getStatusColor(status: string) {
@@ -93,23 +146,23 @@ export default async function TeamLeadDashboard() {
   // Sort tasks: Active tasks first, completed tasks last
   const sortedTasks = [...tasks].sort((a: any, b: any) => {
     const statusOrder: Record<string, number> = {
-      "not_started": 1,
-      "in_progress": 2,
-      "working": 3,
-      "under_review": 4,
-      "on_hold": 5,
-      "completed": 6,
+      not_started: 1,
+      in_progress: 2,
+      working: 3,
+      under_review: 4,
+      on_hold: 5,
+      completed: 6,
     };
     const orderA = statusOrder[a.status] || 999;
     const orderB = statusOrder[b.status] || 999;
-    
+
     // If same status, sort by deadline
     if (orderA === orderB) {
       const dateA = new Date(a.deadline).getTime();
       const dateB = new Date(b.deadline).getTime();
       return dateA - dateB;
     }
-    
+
     return orderA - orderB;
   });
 
@@ -252,12 +305,22 @@ export default async function TeamLeadDashboard() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-black font-bold">Task</TableHead>
-                  <TableHead className="text-black font-bold">Project</TableHead>
-                  <TableHead className="text-black font-bold">Assigned To</TableHead>
+                  <TableHead className="text-black font-bold">
+                    Project
+                  </TableHead>
+                  <TableHead className="text-black font-bold">
+                    Assigned To
+                  </TableHead>
                   <TableHead className="text-black font-bold">Status</TableHead>
-                  <TableHead className="text-black font-bold">Priority</TableHead>
-                  <TableHead className="text-black font-bold">Deadline</TableHead>
-                  <TableHead className="text-right text-black font-bold">Action</TableHead>
+                  <TableHead className="text-black font-bold">
+                    Priority
+                  </TableHead>
+                  <TableHead className="text-black font-bold">
+                    Deadline
+                  </TableHead>
+                  <TableHead className="text-right text-black font-bold">
+                    Action
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -268,24 +331,34 @@ export default async function TeamLeadDashboard() {
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-slate-700">
-                        {typeof task.projectId === 'object' ? task.projectId.name : 'N/A'}
+                        {typeof task.projectId === "object"
+                          ? task.projectId.name
+                          : "N/A"}
                       </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Users className="h-3 w-3 text-slate-500" />
                         <span className="text-sm text-black">
-                          {typeof task.assignedTo === 'object' ? task.assignedTo.name : 'Unassigned'}
+                          {typeof task.assignedTo === "object"
+                            ? task.assignedTo.name
+                            : "Unassigned"}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getTaskStatusColor(task.status)}>
-                        {task.status.replace('_', ' ')}
+                      <Badge
+                        variant="outline"
+                        className={getTaskStatusColor(task.status)}
+                      >
+                        {task.status.replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getPriorityColor(task.priority)}>
+                      <Badge
+                        variant="outline"
+                        className={getPriorityColor(task.priority)}
+                      >
                         {task.priority}
                       </Badge>
                     </TableCell>
@@ -294,7 +367,7 @@ export default async function TeamLeadDashboard() {
                         <Calendar className="h-3 w-3 text-slate-500" />
                         {task.deadline
                           ? new Date(task.deadline).toLocaleDateString()
-                          : 'No deadline'}
+                          : "No deadline"}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">

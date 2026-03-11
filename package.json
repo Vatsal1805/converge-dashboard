@@ -12,6 +12,7 @@
     "seed:teamleads": "npx tsx scripts/seed-teamleads.ts",
     "seed:interns": "npx tsx scripts/seed-interns.ts",
     "seed:teams": "npx tsx scripts/seed-teams.ts",
+    "migrate:teamlead": "npx tsx scripts/migrate-teamlead-field.ts",
     "backup": "node scripts/backup.js backup",
     "backup:list": "node scripts/backup.js list",
     "backup:clean": "node scripts/backup.js clean"

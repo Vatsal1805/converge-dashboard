@@ -3,20 +3,25 @@ import connectToDatabase from "@/lib/db";
 import User from "@/models/User";
 import { comparePassword, signToken } from "@/lib/auth";
 import { rateLimit, rateLimitResponse } from "@/lib/rateLimit";
-import { UnauthorizedError, ForbiddenError, handleAPIError, ValidationError } from "@/lib/errors";
+import {
+  UnauthorizedError,
+  ForbiddenError,
+  handleAPIError,
+  ValidationError,
+} from "@/lib/errors";
 import { userSchemas, parseBody } from "@/lib/validation";
 
 export async function POST(request: Request) {
   try {
-    // ✅ Rate limiting: Prevent brute force attacks
-    const rateLimitResult = await rateLimit(request, {
-      maxRequests: 5, // Only 5 login attempts
-      windowMs: 15 * 60 * 1000, // per 15 minutes
-    });
+    // ✅ Rate limiting: Prevent brute force attacks (TEMPORARILY DISABLED)
+    // const rateLimitResult = await rateLimit(request, {
+    //   maxRequests: 5, // Only 5 login attempts
+    //   windowMs: 15 * 60 * 1000, // per 15 minutes
+    // });
 
-    if (rateLimitResult.limited) {
-      return rateLimitResponse(rateLimitResult.resetTime);
-    }
+    // if (rateLimitResult.limited) {
+    //   return rateLimitResponse(rateLimitResult.resetTime);
+    // }
 
     // ✅ Centralized validation
     const { email, password } = await parseBody(request, userSchemas.login);

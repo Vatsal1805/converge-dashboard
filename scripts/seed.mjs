@@ -92,7 +92,7 @@ async function seed() {
         name: "ConvergeOS Redesign",
         clientName: "Converge Digitals",
         description: "Internal OS rebuild",
-        teamLeadId: tlId,
+        teamLeadIds: [tlId],
         deadline: new Date("2024-12-31"),
         status: "active",
         priority: "high",

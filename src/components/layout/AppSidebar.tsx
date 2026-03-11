@@ -46,6 +46,12 @@ const navItems: NavItem[] = [
     roles: ["founder", "teamlead"],
   },
   {
+    label: "My Projects",
+    to: "/my-projects",
+    icon: Briefcase,
+    roles: ["intern"],
+  },
+  {
     label: "Tasks",
     to: "/tasks",
     icon: CheckSquare,

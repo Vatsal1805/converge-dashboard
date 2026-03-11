@@ -7,6 +7,7 @@ import Research from "./Research";
 import Brainstorm from "./Brainstorm";
 import AuditLog from "./AuditLog";
 import Team from "./Team";
+import Notification from "./Notification";
 
 // Export all models from a single point
 export {
@@ -19,4 +20,5 @@ export {
   Brainstorm,
   AuditLog,
   Team,
+  Notification,
 };

@@ -97,11 +97,14 @@ export async function PUT(
 
     // Send emergency notification if intern marks task as emergency
     if (internStatus === 'emergency' && updatedTask) {
+      // Handle both populated (object) and non-populated (ObjectId) cases
+      const createdById = (updatedTask.createdBy as any)?._id || updatedTask.createdBy;
+      const assignedToName = (updatedTask.assignedTo as any)?.name || 'Intern';
       await inAppNotifications.taskEmergency({
-        userId: updatedTask.createdBy._id.toString(),
+        userId: createdById.toString(),
         taskId: updatedTask._id.toString(),
         taskTitle: updatedTask.title,
-        internName: (updatedTask.assignedTo as any).name
+        internName: assignedToName
       });
     }
 

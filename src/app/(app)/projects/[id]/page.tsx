@@ -37,6 +37,7 @@ interface Project {
   priority: string;
   deadline: string;
   teamLeadIds: { _id: string; name: string; email: string }[];
+  members?: { _id: string; name: string; email: string; department?: string }[];
   budget?: number;
 }
 
@@ -129,7 +130,7 @@ export default function ProjectDetailPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editedProject),
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         if (data.project) {
@@ -238,7 +239,7 @@ export default function ProjectDetailPage({
           <p className="text-slate-600">{project.clientName}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {(currentUser?.role === "founder" || currentUser?.role === "teamlead") && !isEditing && (
+          {currentUser?.role === "founder" && !isEditing && (
             <Button
               variant="outline"
               size="sm"
@@ -305,7 +306,12 @@ export default function ProjectDetailPage({
             {isEditing ? (
               <Textarea
                 value={editedProject.description || ""}
-                onChange={(e) => setEditedProject({ ...editedProject, description: e.target.value })}
+                onChange={(e) =>
+                  setEditedProject({
+                    ...editedProject,
+                    description: e.target.value,
+                  })
+                }
                 placeholder="Enter project description..."
                 rows={5}
                 className="resize-none"
@@ -330,7 +336,9 @@ export default function ProjectDetailPage({
               {isEditing ? (
                 <Select
                   value={editedProject.status || project.status}
-                  onValueChange={(value) => setEditedProject({ ...editedProject, status: value })}
+                  onValueChange={(value) =>
+                    setEditedProject({ ...editedProject, status: value })
+                  }
                 >
                   <SelectTrigger className="w-[140px]">
                     <SelectValue />
@@ -358,7 +366,9 @@ export default function ProjectDetailPage({
               {isEditing ? (
                 <Select
                   value={editedProject.priority || project.priority}
-                  onValueChange={(value) => setEditedProject({ ...editedProject, priority: value })}
+                  onValueChange={(value) =>
+                    setEditedProject({ ...editedProject, priority: value })
+                  }
                 >
                   <SelectTrigger className="w-[140px]">
                     <SelectValue />
@@ -370,7 +380,10 @@ export default function ProjectDetailPage({
                   </SelectContent>
                 </Select>
               ) : (
-                <Badge variant="outline" className="text-black border-slate-300">
+                <Badge
+                  variant="outline"
+                  className="text-black border-slate-300"
+                >
                   {project.priority.toUpperCase()}
                 </Badge>
               )}
@@ -403,6 +416,34 @@ export default function ProjectDetailPage({
                 ) : (
                   <span className="text-sm text-slate-500">
                     No team leads assigned
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold text-slate-700">
+                Team Members
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {project.members && project.members.length > 0 ? (
+                  project.members.map((member) => (
+                    <Badge
+                      key={member._id}
+                      variant="outline"
+                      className="text-blue-700 bg-blue-50 border-blue-200"
+                    >
+                      <UserIcon className="h-3 w-3 mr-1" />
+                      {member.name}
+                      {member.department && (
+                        <span className="text-xs text-blue-500 ml-1">
+                          ({member.department})
+                        </span>
+                      )}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-500">
+                    No team members assigned yet
                   </span>
                 )}
               </div>

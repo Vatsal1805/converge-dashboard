@@ -345,8 +345,7 @@ export default function ProjectsPage() {
             Manage ongoing projects and track progress.
           </p>
         </div>
-        {(currentUser?.role === "founder" ||
-          currentUser?.role === "teamlead") && (
+        {currentUser?.role === "founder" && (
           <Button asChild className="text-black hover:text-black">
             <Link href="/projects/create">
               <Plus className="mr-2 h-4 w-4" />
@@ -515,14 +514,7 @@ export default function ProjectsPage() {
                           >
                             View Details
                           </DropdownMenuItem>
-                          {(currentUser?.role === "founder" ||
-                            (currentUser?.role === "teamlead" &&
-                              Array.isArray(project.teamLeadIds) &&
-                              project.teamLeadIds.some(
-                                (tl) =>
-                                  (typeof tl === "object" ? tl._id : tl) ===
-                                  currentUser.id,
-                              ))) && (
+                          {currentUser?.role === "founder" && (
                             <DropdownMenuItem
                               onClick={() => handleOpenEdit(project)}
                             >

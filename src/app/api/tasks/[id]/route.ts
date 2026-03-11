@@ -190,8 +190,10 @@ export async function PATCH(
 
     // Send notification if status was updated
     if (updatingStatus && task) {
+      // Handle both populated (object) and non-populated (ObjectId) cases
+      const assignedToId = (task.assignedTo as any)?._id || task.assignedTo;
       await inAppNotifications.taskUpdated({
-        userId: task.assignedTo._id.toString(),
+        userId: assignedToId.toString(),
         taskId: task._id.toString(),
         taskTitle: task.title,
         newStatus: body.status

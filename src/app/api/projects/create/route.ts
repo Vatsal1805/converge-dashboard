@@ -4,31 +4,39 @@ import connectToDatabase from "@/lib/db";
 import Project from "@/models/Project";
 import User from "@/models/User";
 import { cookies } from "next/headers";
-import { inAppNotifications, createBulkNotifications } from "@/lib/notifications";
-import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
-import { UnauthorizedError, ForbiddenError, NotFoundError, handleAPIError } from '@/lib/errors';
-import { projectSchemas, parseBody } from '@/lib/validation';
-import { audit } from '@/lib/audit';
-import { cache } from '@/lib/cache';
+import {
+  inAppNotifications,
+  createBulkNotifications,
+} from "@/lib/notifications";
+import { rateLimit, rateLimitResponse } from "@/lib/rateLimit";
+import {
+  UnauthorizedError,
+  ForbiddenError,
+  NotFoundError,
+  handleAPIError,
+} from "@/lib/errors";
+import { projectSchemas, parseBody } from "@/lib/validation";
+import { audit } from "@/lib/audit";
+import { cache } from "@/lib/cache";
 
 export async function POST(request: Request) {
   try {
-    // ✅ Rate limiting
-    const rateLimitResult = await rateLimit(request, {
-      maxRequests: 30,
-      windowMs: 15 * 60 * 1000,
-    });
+    // ✅ Rate limiting (TEMPORARILY DISABLED FOR DEVELOPMENT)
+    // const rateLimitResult = await rateLimit(request, {
+    //   maxRequests: 30,
+    //   windowMs: 15 * 60 * 1000,
+    // });
 
-    if (rateLimitResult.limited) {
-      return rateLimitResponse(rateLimitResult.resetTime);
-    }
+    // if (rateLimitResult.limited) {
+    //   return rateLimitResponse(rateLimitResult.resetTime);
+    // }
 
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
     const session = await verifyToken(token || "");
 
     if (!session || (session as any).role !== "founder") {
-      throw new ForbiddenError('Only founders can create projects');
+      throw new ForbiddenError("Only founders can create projects");
     }
 
     // ✅ Centralized validation
@@ -43,7 +51,7 @@ export async function POST(request: Request) {
     });
 
     if (teamLeads.length !== data.teamLeadIds.length) {
-      throw new NotFoundError('One or more invalid Team Lead IDs');
+      throw new NotFoundError("One or more invalid Team Lead IDs");
     }
 
     // Verify all members (interns) exist and have correct role
@@ -54,7 +62,7 @@ export async function POST(request: Request) {
       });
 
       if (members.length !== data.members.length) {
-        throw new NotFoundError('One or more invalid intern IDs');
+        throw new NotFoundError("One or more invalid intern IDs");
       }
     }
 
@@ -75,18 +83,18 @@ export async function POST(request: Request) {
     });
 
     // ✅ Invalidate project cache
-    cache.invalidateByPrefix('projects:');
+    cache.invalidateByPrefix("projects:");
 
     // Send notifications to team leads and members
     const allAssignees = [...data.teamLeadIds, ...(data.members || [])];
     await Promise.all(
-      allAssignees.map(userId =>
+      allAssignees.map((userId) =>
         inAppNotifications.projectAssigned({
           userId,
           projectId: project._id.toString(),
-          projectName: data.name
-        })
-      )
+          projectName: data.name,
+        }),
+      ),
     );
 
     return NextResponse.json({ project }, { status: 201 });

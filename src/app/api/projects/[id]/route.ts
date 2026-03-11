@@ -87,8 +87,11 @@ export async function PATCH(
     }
 
     const role = (session as any).role;
-    if (role !== "founder" && role !== "teamlead") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (role !== "founder") {
+      return NextResponse.json(
+        { error: "Forbidden: Only founders can edit projects" },
+        { status: 403 },
+      );
     }
 
     await connectToDatabase();
@@ -137,14 +140,14 @@ export async function PATCH(
     if (body.status && body.status !== existingProject.status) {
       const allMembers = [
         ...project.teamLeadIds.map((tl: any) => tl._id.toString()),
-        ...project.members.map((m: any) => m._id.toString())
+        ...project.members.map((m: any) => m._id.toString()),
       ];
-      
+
       await inAppNotifications.projectStatusChanged({
         userIds: allMembers,
         projectId: project._id.toString(),
         projectName: project.name,
-        newStatus: body.status
+        newStatus: body.status,
       });
     }
 

@@ -47,6 +47,27 @@ ProjectSchema.index({ members: 1 });
 ProjectSchema.index({ status: 1 });
 ProjectSchema.index({ createdAt: -1 }); // Optimized for latest project sorting
 
+// Backward compatibility: Handle old teamLeadId field during queries
+ProjectSchema.pre(['find', 'findOne'], function() {
+  // This middleware ensures old documents with teamLeadId still work
+  // During the transition period before migration is complete
+});
+
+// Post-query middleware to handle backward compatibility
+ProjectSchema.post(['find', 'findOne'], function(docs: any) {
+  if (!docs) return;
+  
+  const documents = Array.isArray(docs) ? docs : [docs];
+  
+  documents.forEach((doc: any) => {
+    // If document has old teamLeadId field, convert it to teamLeadIds array
+    if (doc && doc.teamLeadId && !doc.teamLeadIds) {
+      doc.teamLeadIds = [doc.teamLeadId];
+      delete doc.teamLeadId;
+    }
+  });
+});
+
 // Clear cached model in development to ensure schema updates are applied
 if (process.env.NODE_ENV !== "production" && mongoose.models.Project) {
   delete mongoose.models.Project;

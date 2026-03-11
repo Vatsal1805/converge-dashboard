@@ -125,11 +125,10 @@ export default function CreateProjectPage() {
         throw new Error(data.error || "Failed to create project");
       }
 
+      // Successfully created - redirect back to projects list
       router.push("/projects");
-      router.refresh();
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -260,7 +259,10 @@ export default function CreateProjectPage() {
                   </p>
                 ) : (
                   interns.map((intern) => (
-                    <div key={intern._id} className="flex items-center space-x-2">
+                    <div
+                      key={intern._id}
+                      className="flex items-center space-x-2"
+                    >
                       <Checkbox
                         id={`intern-${intern._id}`}
                         checked={formData.members.includes(intern._id)}

@@ -45,8 +45,10 @@ export async function rateLimit(
     options.maxRequests ||
     parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || "100");
 
-  // Get identifier (IP or user ID from token)
-  const identifier = getIdentifier(request);
+  // Get identifier (IP or user ID from token) + endpoint path
+  const url = new URL(request.url);
+  const endpoint = url.pathname;
+  const identifier = `${getIdentifier(request)}:${endpoint}`;
 
   const now = Date.now();
   const resetTime = now + windowMs;
