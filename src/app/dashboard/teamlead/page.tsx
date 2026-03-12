@@ -34,19 +34,13 @@ async function getTeamLeadData(token: string) {
     await connectToDatabase();
 
     const userId = new Types.ObjectId((session as any).id);
-    console.log(
-      "Team Lead Dashboard: Fetching data for user",
-      (session as any).id,
-    );
 
-    // Get all projects where this user is one of the Team Leads
     const myProjects = await Project.find({ teamLeadIds: userId })
       .populate("teamLeadIds", "name email")
       .populate("members", "name email department")
       .lean();
 
     const projectIds = myProjects.map((p) => p._id);
-    console.log("Team Lead Dashboard: Found", myProjects.length, "projects");
 
     // Get all tasks under these projects
     const tasks = await Task.find({ projectId: { $in: projectIds } })
@@ -55,9 +49,6 @@ async function getTeamLeadData(token: string) {
       .sort({ updatedAt: -1 })
       .lean();
 
-    console.log("Team Lead Dashboard: Found", tasks.length, "tasks");
-
-    // Calculate stats
     const relevantProjectsCount = myProjects.filter((p: any) =>
       ["planning", "active"].includes(p.status),
     ).length;

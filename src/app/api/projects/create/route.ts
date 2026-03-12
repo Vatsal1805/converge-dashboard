@@ -69,10 +69,10 @@ export async function POST(request: Request) {
     const project = await Project.create({
       ...data,
       members: data.members || [],
+      projectDocument: data.projectDocument || undefined,
       createdBy: (session as any).id,
     });
 
-    // ✅ Audit logging
     await audit.projectCreated({
       creatorId: (session as any).id,
       creatorName: (session as any).name,

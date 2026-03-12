@@ -55,14 +55,14 @@ const navItems: NavItem[] = [
     label: "Tasks",
     to: "/tasks",
     icon: CheckSquare,
-    roles: ["founder", "teamlead", "intern"],
+    roles: ["founder", "teamlead"],
   },
   { label: "My Tasks", to: "/my-tasks", icon: CheckSquare, roles: ["intern"] },
   {
     label: "Leads & CRM",
     to: "/leads",
     icon: Target,
-    roles: ["founder", "teamlead"],
+    roles: ["founder"],
   },
   {
     label: "Brainstorm",
@@ -92,7 +92,7 @@ const navItems: NavItem[] = [
     label: "Team",
     to: "/team",
     icon: Users,
-    roles: ["founder", "teamlead", "intern"],
+    roles: ["founder", "teamlead"],
   },
   {
     label: "Users",

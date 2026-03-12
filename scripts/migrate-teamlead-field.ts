@@ -1,21 +1,25 @@
 /**
  * Migration Script: teamLeadId to teamLeadIds
- * 
+ *
  * This script migrates existing Project documents from the old schema
  * where teamLeadId was a single ObjectId to the new schema where
  * teamLeadIds is an array of ObjectIds.
- * 
+ *
  * Usage: npx tsx scripts/migrate-teamlead-field.ts
  */
 
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import path from 'path';
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import path from "path";
 
 // Load environment variables
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/convergeos';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  throw new Error("Please define MONGODB_URI in .env.local");
+}
 
 interface OldProject {
   _id: mongoose.Types.ObjectId;
@@ -25,28 +29,30 @@ interface OldProject {
 
 async function migrateTeamLeadField() {
   try {
-    console.log('🔄 Starting migration: teamLeadId → teamLeadIds\n');
-    
+    console.log("🔄 Starting migration: teamLeadId → teamLeadIds\n");
+
     // Connect to database
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    await mongoose.connect(MONGODB_URI!);
+    console.log("✅ Connected to MongoDB");
 
     const db = mongoose.connection.db;
     if (!db) {
-      throw new Error('Database connection not established');
+      throw new Error("Database connection not established");
     }
 
-    const projectsCollection = db.collection('projects');
+    const projectsCollection = db.collection("projects");
 
     // Find documents with old field structure
-    const oldProjects = await projectsCollection.find({
-      teamLeadId: { $exists: true }
-    }).toArray() as unknown as OldProject[];
+    const oldProjects = (await projectsCollection
+      .find({
+        teamLeadId: { $exists: true },
+      })
+      .toArray()) as unknown as OldProject[];
 
     console.log(`\n📊 Found ${oldProjects.length} projects with old schema\n`);
 
     if (oldProjects.length === 0) {
-      console.log('✨ No migration needed - all projects are up to date!');
+      console.log("✨ No migration needed - all projects are up to date!");
       return;
     }
 
@@ -58,17 +64,14 @@ async function migrateTeamLeadField() {
       try {
         const updateData: any = {
           $set: {
-            teamLeadIds: [project.teamLeadId]
+            teamLeadIds: [project.teamLeadId],
           },
           $unset: {
-            teamLeadId: ""
-          }
+            teamLeadId: "",
+          },
         };
 
-        await projectsCollection.updateOne(
-          { _id: project._id },
-          updateData
-        );
+        await projectsCollection.updateOne({ _id: project._id }, updateData);
 
         successCount++;
         console.log(`✅ Migrated project: ${project._id}`);
@@ -78,26 +81,27 @@ async function migrateTeamLeadField() {
       }
     }
 
-    console.log('\n' + '='.repeat(50));
-    console.log('📊 Migration Summary:');
-    console.log('='.repeat(50));
+    console.log("\n" + "=".repeat(50));
+    console.log("📊 Migration Summary:");
+    console.log("=".repeat(50));
     console.log(`Total projects found:    ${oldProjects.length}`);
     console.log(`Successfully migrated:   ${successCount}`);
     console.log(`Failed:                  ${errorCount}`);
-    console.log('='.repeat(50));
+    console.log("=".repeat(50));
 
     if (errorCount === 0) {
-      console.log('\n✨ Migration completed successfully!');
+      console.log("\n✨ Migration completed successfully!");
     } else {
-      console.log('\n⚠️  Migration completed with errors. Please review failed migrations.');
+      console.log(
+        "\n⚠️  Migration completed with errors. Please review failed migrations.",
+      );
     }
-
   } catch (error) {
-    console.error('\n❌ Migration failed:', error);
+    console.error("\n❌ Migration failed:", error);
     process.exit(1);
   } finally {
     await mongoose.disconnect();
-    console.log('\n🔌 Disconnected from MongoDB');
+    console.log("\n🔌 Disconnected from MongoDB");
   }
 }
 
@@ -106,15 +110,17 @@ export async function ensureTeamLeadIdsArray() {
   const db = mongoose.connection.db;
   if (!db) return;
 
-  const projectsCollection = db.collection('projects');
-  
+  const projectsCollection = db.collection("projects");
+
   // Check if there are any documents with old schema
   const hasOldSchema = await projectsCollection.countDocuments({
-    teamLeadId: { $exists: true }
+    teamLeadId: { $exists: true },
   });
 
   if (hasOldSchema > 0) {
-    console.warn('⚠️  Warning: Found projects with old schema. Run migration: npm run migrate:teamlead');
+    console.warn(
+      "⚠️  Warning: Found projects with old schema. Run migration: npm run migrate:teamlead",
+    );
   }
 }
 

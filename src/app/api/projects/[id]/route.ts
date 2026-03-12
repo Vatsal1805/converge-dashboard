@@ -4,6 +4,7 @@ import connectToDatabase from "@/lib/db";
 import Project from "@/models/Project";
 import User from "@/models/User";
 import { inAppNotifications } from "@/lib/notifications";
+import { deleteFromCloudinary } from "@/lib/fileStorage";
 
 export async function GET(
   request: Request,
@@ -58,11 +59,20 @@ export async function DELETE(
     }
 
     await connectToDatabase();
-    const project = await Project.findByIdAndDelete(id);
+    const project = await Project.findById(id);
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
+
+    if (project.projectDocument?.url) {
+      const publicId = extractPublicIdFromUrl(project.projectDocument.url);
+      if (publicId) {
+        await deleteFromCloudinary(publicId, "raw");
+      }
+    }
+
+    await Project.findByIdAndDelete(id);
 
     return NextResponse.json({ message: "Project deleted successfully" });
   } catch (error) {
@@ -71,6 +81,18 @@ export async function DELETE(
       { error: "Internal Server Error" },
       { status: 500 },
     );
+  }
+}
+
+// Helper function to extract Cloudinary public_id from URL
+function extractPublicIdFromUrl(url: string): string | null {
+  try {
+    // Cloudinary URL format: https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/v{version}/{public_id}.{format}
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/);
+    return match ? match[1] : null;
+  } catch (error) {
+    console.error("Error extracting public ID:", error);
+    return null;
   }
 }
 export async function PATCH(
@@ -100,6 +122,27 @@ export async function PATCH(
     const existingProject = await Project.findById(id);
     if (!existingProject) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Handle file deletion from Cloudinary if projectDocument is being removed or replaced
+    if (body.projectDocument === null && existingProject.projectDocument?.url) {
+      const publicId = extractPublicIdFromUrl(
+        existingProject.projectDocument.url,
+      );
+      if (publicId) {
+        await deleteFromCloudinary(publicId, "raw");
+      }
+    } else if (
+      body.projectDocument &&
+      body.projectDocument.url !== existingProject.projectDocument?.url &&
+      existingProject.projectDocument?.url
+    ) {
+      const oldPublicId = extractPublicIdFromUrl(
+        existingProject.projectDocument.url,
+      );
+      if (oldPublicId) {
+        await deleteFromCloudinary(oldPublicId, "raw");
+      }
     }
 
     // Validate members if provided

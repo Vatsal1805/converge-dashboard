@@ -132,6 +132,18 @@ export const projectSchemas = {
     deadline: validators.date,
     priority: validators.taskPriority,
     budget: validators.positiveNumber.optional(),
+    projectDocument: z
+      .object({
+        filename: z.string(),
+        originalName: z.string(),
+        size: z.number(),
+        mimeType: z.string(),
+        url: z.string().url(),
+        publicId: z.string().optional(),
+        uploadedAt: z.string().or(z.date()),
+        uploadedBy: z.string(),
+      })
+      .optional(),
   }),
 
   update: z.object({
@@ -143,6 +155,18 @@ export const projectSchemas = {
     status: validators.projectStatus.optional(),
     priority: validators.taskPriority.optional(),
     budget: validators.positiveNumber.optional(),
+    projectDocument: z
+      .object({
+        filename: z.string(),
+        originalName: z.string(),
+        size: z.number(),
+        mimeType: z.string(),
+        url: z.string().url(),
+        publicId: z.string().optional(),
+        uploadedAt: z.string().or(z.date()),
+        uploadedBy: z.string(),
+      })
+      .optional(),
   }),
 };
 

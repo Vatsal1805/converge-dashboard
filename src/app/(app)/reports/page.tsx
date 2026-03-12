@@ -10,6 +10,11 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import {
+  ProjectStatusBadge,
+  PriorityBadge,
+  TaskStatusBadge,
+} from "@/components/ui/badge-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -93,34 +98,6 @@ export default function ReportsPage() {
       console.error("Failed to fetch analytics", err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-700";
-      case "in_progress":
-        return "bg-blue-100 text-blue-700";
-      case "planning":
-        return "bg-purple-100 text-purple-700";
-      case "on_hold":
-        return "bg-amber-100 text-amber-700";
-      default:
-        return "bg-slate-100 text-slate-700";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-700";
-      case "medium":
-        return "bg-amber-100 text-amber-700";
-      case "low":
-        return "bg-green-100 text-green-700";
-      default:
-        return "bg-slate-100 text-slate-700";
     }
   };
 
@@ -276,12 +253,7 @@ export default function ReportsPage() {
                     className="flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className={getStatusColor(item._id)}
-                      >
-                        {item._id?.replace("_", " ") || "Unknown"}
-                      </Badge>
+                      <TaskStatusBadge status={item._id || "unknown"} />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{item.count}</span>
@@ -499,20 +471,10 @@ export default function ReportsPage() {
                             : "Unassigned"}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={getPriorityColor(project.priority)}
-                          >
-                            {project.priority}
-                          </Badge>
+                          <PriorityBadge priority={project.priority} />
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={getStatusColor(project.status)}
-                          >
-                            {project.status?.replace("_", " ")}
-                          </Badge>
+                          <ProjectStatusBadge status={project.status} />
                         </TableCell>
                         <TableCell>
                           {new Date(project.deadline).toLocaleDateString()}

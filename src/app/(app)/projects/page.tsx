@@ -29,6 +29,13 @@ import {
   Trash2,
   MoreVertical,
 } from "lucide-react";
+import {
+  FileDisplay,
+  type FileDocument,
+} from "@/components/project/FileDisplay";
+import { FileUploadSection } from "@/components/project/FileUploadSection";
+import { uploadFile } from "@/lib/fileUtils";
+import { ProjectStatusBadge, PriorityBadge } from "@/components/ui/badge-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +80,7 @@ interface Project {
     | Array<{ _id: string; name: string; email: string; department?: string }>
     | string[];
   budget?: number;
+  projectDocument?: FileDocument;
 }
 
 interface User {
@@ -102,9 +110,12 @@ export default function ProjectsPage() {
     deadline: "",
     teamLeadIds: [] as string[],
     members: [] as string[],
-    budget: 0,
+    budget: "" as string | number,
   });
   const [interns, setInterns] = useState<User[]>([]);
+  const [editSelectedFile, setEditSelectedFile] = useState<File | null>(null);
+  const [editFileError, setEditFileError] = useState("");
+  const [editRemoveExistingFile, setEditRemoveExistingFile] = useState(false);
 
   const fetchProjects = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -120,9 +131,6 @@ export default function ProjectsPage() {
       const res = await fetch(url);
 
       if (!res.ok) {
-        console.error("API Error:", res.status, res.statusText);
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Error details:", errorData);
         // Try to load from cache if API fails
         const cachedProjects = storage.get<Project[]>("projects_cache");
         if (cachedProjects && cachedProjects.length > 0) {
@@ -237,6 +245,9 @@ export default function ProjectsPage() {
       members: membersArray,
       budget: project.budget || 0,
     });
+    setEditSelectedFile(null);
+    setEditFileError("");
+    setEditRemoveExistingFile(false);
     setEditDialogOpen(true);
   };
 
@@ -258,21 +269,49 @@ export default function ProjectsPage() {
     }));
   };
 
+  // File selection handler
+  const handleEditFileSelect = (file: File | null) => {
+    setEditSelectedFile(file);
+    setEditFileError("");
+    if (file) {
+      setEditRemoveExistingFile(false);
+    }
+  };
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
     setUpdating(true);
     try {
+      let uploadedDocument = null;
+
+      // Handle file upload if new file selected
+      if (editSelectedFile) {
+        uploadedDocument = await uploadFile(editSelectedFile);
+      }
+
+      // Prepare update payload
+      const updatePayload: any = {
+        ...editFormData,
+        budget: Number(editFormData.budget),
+      };
+
+      // Handle file changes
+      if (editRemoveExistingFile) {
+        updatePayload.projectDocument = null;
+      } else if (uploadedDocument) {
+        updatePayload.projectDocument = uploadedDocument;
+      }
+
       const res = await fetch(`/api/projects/${editingProject._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...editFormData,
-          budget: Number(editFormData.budget),
-        }),
+        body: JSON.stringify(updatePayload),
       });
       if (res.ok) {
         setEditDialogOpen(false);
+        setEditSelectedFile(null);
+        setEditRemoveExistingFile(false);
         fetchProjects();
       } else {
         const data = await res.json();
@@ -542,15 +581,15 @@ export default function ProjectsPage() {
 
       {/* Edit Project Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <form onSubmit={handleUpdate}>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh]">
+          <form onSubmit={handleUpdate} className="flex flex-col max-h-[80vh]">
             <DialogHeader>
               <DialogTitle>Edit Project</DialogTitle>
               <DialogDescription>
                 Update the details for "{editingProject?.name}"
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 py-4 overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Project Name</Label>
@@ -656,15 +695,18 @@ export default function ProjectsPage() {
                     onChange={(e) =>
                       setEditFormData({
                         ...editFormData,
-                        budget: Number(e.target.value),
+                        budget: e.target.value,
                       })
                     }
+                    placeholder="Enter budget amount"
+                    min="0"
+                    step="0.01"
                   />
                 </div>
               </div>
               <div className="space-y-3">
                 <Label>Team Leads</Label>
-                <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                <div className="border rounded-lg p-3 space-y-2 max-h-32 overflow-y-auto">
                   {teamLeads.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No team leads available
@@ -698,7 +740,7 @@ export default function ProjectsPage() {
               </div>
               <div className="space-y-3">
                 <Label>Team Members (Interns)</Label>
-                <div className="border rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                <div className="border rounded-lg p-3 space-y-2 max-h-32 overflow-y-auto">
                   {interns.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No interns available
@@ -730,8 +772,101 @@ export default function ProjectsPage() {
                   </p>
                 )}
               </div>
+
+              {/* File Upload Section */}
+              <div className="space-y-3">
+                <Label>Project Document</Label>
+
+                {/* Existing File */}
+                {editingProject?.projectDocument &&
+                  !editRemoveExistingFile &&
+                  !editSelectedFile && (
+                    <div className="space-y-2">
+                      <FileDisplay
+                        document={editingProject.projectDocument}
+                        onRemove={() => setEditRemoveExistingFile(true)}
+                        showRemove={true}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() =>
+                          document.getElementById("edit-file-replace")?.click()
+                        }
+                      >
+                        Replace File
+                      </Button>
+                      <input
+                        type="file"
+                        id="edit-file-replace"
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleEditFileSelect(file);
+                        }}
+                      />
+                    </div>
+                  )}
+
+                {/* New File Selected */}
+                {editSelectedFile && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 border-green-200">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-green-700 truncate">
+                          {editSelectedFile.name}
+                        </p>
+                        <p className="text-xs text-green-600">
+                          {(editSelectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          (New)
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditSelectedFile(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* File Removed */}
+                {editRemoveExistingFile && !editSelectedFile && (
+                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-red-50 border-red-200">
+                    <p className="text-sm text-red-700 flex-1">
+                      File will be removed
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditRemoveExistingFile(false)}
+                    >
+                      Undo
+                    </Button>
+                  </div>
+                )}
+
+                {/* Upload Section */}
+                {(!editingProject?.projectDocument || editRemoveExistingFile) &&
+                  !editSelectedFile && (
+                    <FileUploadSection
+                      selectedFile={editSelectedFile}
+                      onFileSelect={handleEditFileSelect}
+                      error={editFileError}
+                      onErrorChange={setEditFileError}
+                      label=""
+                    />
+                  )}
+              </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="pt-4 mt-2 border-t">
               <Button
                 type="button"
                 variant="outline"

@@ -21,10 +21,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { FileUploadSection } from "@/components/project/FileUploadSection";
+import { uploadFile } from "@/lib/fileUtils";
 // import { Calendar } from "@/components/ui/calendar" // Ensure calendar component exists or use native date input
 // import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
@@ -47,10 +47,13 @@ interface Team {
 export default function CreateProjectPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [teamLeads, setTeamLeads] = useState<User[]>([]);
   const [interns, setInterns] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [error, setError] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -60,7 +63,7 @@ export default function CreateProjectPage() {
     members: [] as string[],
     priority: "medium",
     deadline: "",
-    budget: 0,
+    budget: "" as string | number,
   });
 
   useEffect(() => {
@@ -110,12 +113,19 @@ export default function CreateProjectPage() {
     }
 
     try {
+      // Upload file if selected
+      let uploadedDocument = null;
+      if (selectedFile) {
+        uploadedDocument = await uploadFile(selectedFile);
+      }
+
       const res = await fetch("/api/projects/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
           budget: Number(formData.budget),
+          projectDocument: uploadedDocument || undefined,
         }),
       });
 
@@ -131,6 +141,13 @@ export default function CreateProjectPage() {
       setError(err.message);
       setLoading(false);
     }
+  };
+
+  // File selection handler
+  const handleFileSelect = (file: File | null) => {
+    setSelectedFile(file);
+    setFileError("");
+    setError("");
   };
 
   const toggleTeamLead = (leadId: string) => {
@@ -152,7 +169,7 @@ export default function CreateProjectPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-8">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">
           Create New Project
@@ -169,7 +186,7 @@ export default function CreateProjectPage() {
             Fill in the information below to start a new project.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="max-h-[calc(100vh-250px)] overflow-y-auto pr-2">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <Alert variant="destructive">
@@ -217,9 +234,20 @@ export default function CreateProjectPage() {
               />
             </div>
 
+            {/* File Upload Section */}
+            <FileUploadSection
+              selectedFile={selectedFile}
+              onFileSelect={handleFileSelect}
+              error={fileError}
+              onErrorChange={setFileError}
+              disabled={loading}
+              label="Project Document (Optional)"
+              helpText="Upload project report or related documents for team reference"
+            />
+
             <div className="space-y-3">
               <Label>Assign Team Leads (Select one or more)</Label>
-              <div className="border rounded-lg p-4 space-y-3 max-h-60 overflow-y-auto">
+              <div className="border rounded-lg p-4 space-y-3 max-h-48 overflow-y-auto">
                 {teamLeads.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No team leads available
@@ -252,7 +280,7 @@ export default function CreateProjectPage() {
 
             <div className="space-y-3">
               <Label>Assign Team Members (Interns - Optional)</Label>
-              <div className="border rounded-lg p-4 space-y-3 max-h-60 overflow-y-auto">
+              <div className="border rounded-lg p-4 space-y-3 max-h-48 overflow-y-auto">
                 {interns.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     No interns available
@@ -331,9 +359,11 @@ export default function CreateProjectPage() {
                 type="number"
                 value={formData.budget}
                 onChange={(e) =>
-                  setFormData({ ...formData, budget: Number(e.target.value) })
+                  setFormData({ ...formData, budget: e.target.value })
                 }
-                placeholder="0.00"
+                placeholder="Enter budget amount"
+                min="0"
+                step="0.01"
               />
             </div>
 

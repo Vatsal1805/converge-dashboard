@@ -177,7 +177,9 @@ export default function SettingsPage() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList
+          className={`grid w-full ${currentUser?.role === "founder" ? "grid-cols-4" : "grid-cols-2"} lg:w-auto lg:inline-grid`}
+        >
           <TabsTrigger value="profile" className="gap-2">
             <User className="h-4 w-4 hidden sm:block" />
             Profile
@@ -186,14 +188,18 @@ export default function SettingsPage() {
             <Bell className="h-4 w-4 hidden sm:block" />
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
-            <Palette className="h-4 w-4 hidden sm:block" />
-            Appearance
-          </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2">
-            <Shield className="h-4 w-4 hidden sm:block" />
-            Security
-          </TabsTrigger>
+          {currentUser?.role === "founder" && (
+            <>
+              <TabsTrigger value="appearance" className="gap-2">
+                <Palette className="h-4 w-4 hidden sm:block" />
+                Appearance
+              </TabsTrigger>
+              <TabsTrigger value="security" className="gap-2">
+                <Shield className="h-4 w-4 hidden sm:block" />
+                Security
+              </TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* Profile Tab */}
@@ -416,123 +422,127 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Appearance Tab */}
-        <TabsContent value="appearance" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme</CardTitle>
-              <CardDescription>Select your preferred theme.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                {["light", "dark", "system"].map((theme) => (
-                  <button
-                    key={theme}
-                    onClick={() => setAppearance({ ...appearance, theme })}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      appearance.theme === theme
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      {theme === "light" && <Sun className="h-6 w-6" />}
-                      {theme === "dark" && <Moon className="h-6 w-6" />}
-                      {theme === "system" && <Settings className="h-6 w-6" />}
-                      <span className="text-sm font-medium capitalize">
-                        {theme}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Display</CardTitle>
-              <CardDescription>
-                Customize the interface display options.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Compact Mode</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Use a more compact interface layout
-                  </p>
+        {/* Appearance Tab - Only for Founders */}
+        {currentUser?.role === "founder" && (
+          <TabsContent value="appearance" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Theme</CardTitle>
+                <CardDescription>Select your preferred theme.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  {["light", "dark", "system"].map((theme) => (
+                    <button
+                      key={theme}
+                      onClick={() => setAppearance({ ...appearance, theme })}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        appearance.theme === theme
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                          : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        {theme === "light" && <Sun className="h-6 w-6" />}
+                        {theme === "dark" && <Moon className="h-6 w-6" />}
+                        {theme === "system" && <Settings className="h-6 w-6" />}
+                        <span className="text-sm font-medium capitalize">
+                          {theme}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <Switch
-                  checked={appearance.compactMode}
-                  onCheckedChange={(v: boolean) =>
-                    setAppearance({ ...appearance, compactMode: v })
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
 
-        {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>
-                Update your password to keep your account secure.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="current-password">Current Password</Label>
-                <Input id="current-password" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new-password">New Password</Label>
-                <Input id="new-password" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input id="confirm-password" type="password" />
-              </div>
-              <Button className="text-black hover:text-black">
-                Update Password
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Two-Factor Authentication</CardTitle>
-              <CardDescription>
-                Add an extra layer of security to your account.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
-                    <Smartphone className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Authenticator App</p>
+            <Card>
+              <CardHeader>
+                <CardTitle>Display</CardTitle>
+                <CardDescription>
+                  Customize the interface display options.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Compact Mode</Label>
                     <p className="text-sm text-muted-foreground">
-                      Not configured
+                      Use a more compact interface layout
                     </p>
                   </div>
+                  <Switch
+                    checked={appearance.compactMode}
+                    onCheckedChange={(v: boolean) =>
+                      setAppearance({ ...appearance, compactMode: v })
+                    }
+                  />
                 </div>
-                <Button
-                  variant="outline"
-                  className="text-black hover:text-black"
-                >
-                  Setup
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* Security Tab - Only for Founders */}
+        {currentUser?.role === "founder" && (
+          <TabsContent value="security" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Change Password</CardTitle>
+                <CardDescription>
+                  Update your password to keep your account secure.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input id="current-password" type="password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <Input id="new-password" type="password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm New Password</Label>
+                  <Input id="confirm-password" type="password" />
+                </div>
+                <Button className="text-black hover:text-black">
+                  Update Password
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Two-Factor Authentication</CardTitle>
+                <CardDescription>
+                  Add an extra layer of security to your account.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+                      <Smartphone className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Authenticator App</p>
+                      <p className="text-sm text-muted-foreground">
+                        Not configured
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="text-black hover:text-black"
+                  >
+                    Setup
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Save Button */}
