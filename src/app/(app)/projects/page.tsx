@@ -34,7 +34,6 @@ import {
   type FileDocument,
 } from "@/components/project/FileDisplay";
 import { FileUploadSection } from "@/components/project/FileUploadSection";
-import { uploadFile } from "@/lib/fileUtils";
 import { ProjectStatusBadge, PriorityBadge } from "@/components/ui/badge-utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -81,6 +80,7 @@ interface Project {
     | string[];
   budget?: number;
   projectDocument?: FileDocument;
+  projectDocuments?: FileDocument[];
 }
 
 interface User {
@@ -116,6 +116,8 @@ export default function ProjectsPage() {
   const [editSelectedFile, setEditSelectedFile] = useState<File | null>(null);
   const [editFileError, setEditFileError] = useState("");
   const [editRemoveExistingFile, setEditRemoveExistingFile] = useState(false);
+  const [editNewFiles, setEditNewFiles] = useState<File[]>([]);
+  const [editDocUrlsToRemove, setEditDocUrlsToRemove] = useState<string[]>([]);
 
   const fetchProjects = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -248,6 +250,8 @@ export default function ProjectsPage() {
     setEditSelectedFile(null);
     setEditFileError("");
     setEditRemoveExistingFile(false);
+    setEditNewFiles([]);
+    setEditDocUrlsToRemove([]);
     setEditDialogOpen(true);
   };
 
@@ -269,38 +273,58 @@ export default function ProjectsPage() {
     }));
   };
 
-  // File selection handler
-  const handleEditFileSelect = (file: File | null) => {
-    setEditSelectedFile(file);
-    setEditFileError("");
-    if (file) {
-      setEditRemoveExistingFile(false);
-    }
-  };
-
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
     setUpdating(true);
     try {
-      let uploadedDocument = null;
+      // Build current docs: prefer projectDocuments, fall back to projectDocument
+      const currentDocs: FileDocument[] =
+        (editingProject.projectDocuments?.length ?? 0) > 0
+          ? editingProject.projectDocuments!
+          : editingProject.projectDocument
+            ? [editingProject.projectDocument]
+            : [];
 
-      // Handle file upload if new file selected
-      if (editSelectedFile) {
-        uploadedDocument = await uploadFile(editSelectedFile);
+      // Remove docs marked for deletion
+      let finalDocs = currentDocs.filter(
+        (doc) => !editDocUrlsToRemove.includes(doc.url),
+      );
+
+      // Upload new files in parallel
+      if (editNewFiles.length > 0) {
+        const uploaded = await Promise.all(
+          editNewFiles.map(async (file) => {
+            const form = new FormData();
+            form.append("file", file);
+            const res = await fetch("/api/projects/upload-document", {
+              method: "POST",
+              body: form,
+            });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || "Failed to upload file");
+            }
+            const data = await res.json();
+            return data.file;
+          }),
+        );
+        finalDocs = [...finalDocs, ...uploaded];
       }
 
       // Prepare update payload
       const updatePayload: any = {
         ...editFormData,
         budget: Number(editFormData.budget),
+        projectDocuments: finalDocs,
       };
 
-      // Handle file changes
-      if (editRemoveExistingFile) {
+      // Clear legacy single-doc field if it was removed
+      if (
+        editingProject.projectDocument &&
+        editDocUrlsToRemove.includes(editingProject.projectDocument.url)
+      ) {
         updatePayload.projectDocument = null;
-      } else if (uploadedDocument) {
-        updatePayload.projectDocument = uploadedDocument;
       }
 
       const res = await fetch(`/api/projects/${editingProject._id}`, {
@@ -312,6 +336,8 @@ export default function ProjectsPage() {
         setEditDialogOpen(false);
         setEditSelectedFile(null);
         setEditRemoveExistingFile(false);
+        setEditNewFiles([]);
+        setEditDocUrlsToRemove([]);
         fetchProjects();
       } else {
         const data = await res.json();
@@ -775,95 +801,77 @@ export default function ProjectsPage() {
 
               {/* File Upload Section */}
               <div className="space-y-3">
-                <Label>Project Document</Label>
+                <Label>Project Documents</Label>
 
-                {/* Existing File */}
-                {editingProject?.projectDocument &&
-                  !editRemoveExistingFile &&
-                  !editSelectedFile && (
+                {/* Existing docs with individual remove/restore */}
+                {(() => {
+                  const existingDocs =
+                    (editingProject?.projectDocuments?.length ?? 0) > 0
+                      ? editingProject!.projectDocuments!
+                      : editingProject?.projectDocument
+                        ? [editingProject.projectDocument]
+                        : [];
+                  return existingDocs.length > 0 ? (
                     <div className="space-y-2">
-                      <FileDisplay
-                        document={editingProject.projectDocument}
-                        onRemove={() => setEditRemoveExistingFile(true)}
-                        showRemove={true}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() =>
-                          document.getElementById("edit-file-replace")?.click()
-                        }
-                      >
-                        Replace File
-                      </Button>
-                      <input
-                        type="file"
-                        id="edit-file-replace"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleEditFileSelect(file);
-                        }}
-                      />
+                      {existingDocs.map((doc) => (
+                        <div
+                          key={doc.url}
+                          className={`flex items-center gap-3 p-3 border rounded-lg ${
+                            editDocUrlsToRemove.includes(doc.url)
+                              ? "opacity-50 bg-red-50 border-red-200"
+                              : "bg-slate-50 border-slate-200"
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm font-medium truncate ${
+                                editDocUrlsToRemove.includes(doc.url)
+                                  ? "line-through text-slate-400"
+                                  : "text-slate-900"
+                              }`}
+                            >
+                              {doc.originalName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {(doc.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant={
+                              editDocUrlsToRemove.includes(doc.url)
+                                ? "outline"
+                                : "destructive"
+                            }
+                            size="sm"
+                            onClick={() =>
+                              setEditDocUrlsToRemove((prev) =>
+                                prev.includes(doc.url)
+                                  ? prev.filter((u) => u !== doc.url)
+                                  : [...prev, doc.url],
+                              )
+                            }
+                          >
+                            {editDocUrlsToRemove.includes(doc.url)
+                              ? "Restore"
+                              : "Remove"}
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  ) : null;
+                })()}
 
-                {/* New File Selected */}
-                {editSelectedFile && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 border-green-200">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-green-700 truncate">
-                          {editSelectedFile.name}
-                        </p>
-                        <p className="text-xs text-green-600">
-                          {(editSelectedFile.size / 1024 / 1024).toFixed(2)} MB
-                          (New)
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditSelectedFile(null)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* File Removed */}
-                {editRemoveExistingFile && !editSelectedFile && (
-                  <div className="flex items-center gap-3 p-3 border rounded-lg bg-red-50 border-red-200">
-                    <p className="text-sm text-red-700 flex-1">
-                      File will be removed
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditRemoveExistingFile(false)}
-                    >
-                      Undo
-                    </Button>
-                  </div>
-                )}
-
-                {/* Upload Section */}
-                {(!editingProject?.projectDocument || editRemoveExistingFile) &&
-                  !editSelectedFile && (
-                    <FileUploadSection
-                      selectedFile={editSelectedFile}
-                      onFileSelect={handleEditFileSelect}
-                      error={editFileError}
-                      onErrorChange={setEditFileError}
-                      label=""
-                    />
-                  )}
+                {/* Add new files */}
+                <FileUploadSection
+                  multiple={true}
+                  selectedFiles={editNewFiles}
+                  onFilesSelect={setEditNewFiles}
+                  error={editFileError}
+                  onErrorChange={setEditFileError}
+                  label=""
+                  helpText="PDF, DOC, DOCX, XLS, XLSX, TXT — Max 50MB each"
+                />
               </div>
             </div>
             <DialogFooter className="pt-4 mt-2 border-t">

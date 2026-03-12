@@ -94,6 +94,16 @@ export async function DELETE(
       }
     }
 
+    // Delete all documents in the projectDocuments array from Cloudinary
+    for (const doc of project.projectDocuments || []) {
+      if (doc.url) {
+        const publicId = extractPublicIdFromUrl(doc.url);
+        if (publicId) {
+          await deleteFromCloudinary(publicId, "raw");
+        }
+      }
+    }
+
     await Project.findByIdAndDelete(id);
 
     return NextResponse.json({ message: "Project deleted successfully" });
@@ -164,6 +174,21 @@ export async function PATCH(
       );
       if (oldPublicId) {
         await deleteFromCloudinary(oldPublicId, "raw");
+      }
+    }
+
+    // Handle projectDocuments array: delete Cloudinary files no longer in the new array
+    if (body.projectDocuments !== undefined) {
+      const newDocUrls = new Set(
+        (body.projectDocuments as any[]).map((d: any) => d.url),
+      );
+      for (const doc of existingProject.projectDocuments || []) {
+        if (doc.url && !newDocUrls.has(doc.url)) {
+          const publicId = extractPublicIdFromUrl(doc.url);
+          if (publicId) {
+            await deleteFromCloudinary(publicId, "raw");
+          }
+        }
       }
     }
 

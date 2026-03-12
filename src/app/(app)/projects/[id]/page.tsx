@@ -13,19 +13,15 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Briefcase,
   Calendar,
   User as UserIcon,
   Loader2,
   ArrowLeft,
-  Clock,
   Trash2,
   Edit,
   Save,
   X,
   FileText,
-  Upload,
-  Download,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -35,7 +31,6 @@ import {
   type FileDocument,
 } from "@/components/project/FileDisplay";
 import { FileUploadSection } from "@/components/project/FileUploadSection";
-import { uploadFile } from "@/lib/fileUtils";
 import { ProjectStatusBadge, PriorityBadge } from "@/components/ui/badge-utils";
 
 interface Project {
@@ -49,7 +44,8 @@ interface Project {
   teamLeadIds: { _id: string; name: string; email: string }[];
   members?: { _id: string; name: string; email: string; department?: string }[];
   budget?: number;
-  projectDocument?: FileDocument;
+  projectDocument?: FileDocument; // legacy single document
+  projectDocuments?: FileDocument[]; // multiple documents
 }
 
 export default function ProjectDetailPage({
@@ -75,9 +71,9 @@ export default function ProjectDetailPage({
   }>({});
 
   // File upload states for editing
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState("");
-  const [removeExistingFile, setRemoveExistingFile] = useState(false);
+  const [docUrlsToRemove, setDocUrlsToRemove] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -138,47 +134,60 @@ export default function ProjectDetailPage({
   const handleCancel = () => {
     setEditedProject({});
     setIsEditing(false);
-    setSelectedFile(null);
+    setNewFiles([]);
     setFileError("");
-    setRemoveExistingFile(false);
+    setDocUrlsToRemove([]);
   };
 
   const handleSave = async () => {
     setSaving(true);
     setFileError("");
     try {
-      let projectDocumentData = project?.projectDocument;
+      // Build current docs list: prefer projectDocuments, fall back to projectDocument
+      const currentDocs: FileDocument[] =
+        (project?.projectDocuments?.length ?? 0) > 0
+          ? project!.projectDocuments!
+          : project?.projectDocument
+            ? [project.projectDocument]
+            : [];
 
-      // If user wants to remove existing file
-      if (removeExistingFile) {
-        projectDocumentData = undefined;
+      // Remove docs marked for deletion
+      let finalDocs = currentDocs.filter(
+        (doc) => !docUrlsToRemove.includes(doc.url),
+      );
+
+      // Upload new files in parallel
+      if (newFiles.length > 0) {
+        const uploaded = await Promise.all(
+          newFiles.map(async (file) => {
+            const form = new FormData();
+            form.append("file", file);
+            const uploadRes = await fetch("/api/projects/upload-document", {
+              method: "POST",
+              body: form,
+            });
+            if (!uploadRes.ok) {
+              const err = await uploadRes.json();
+              throw new Error(err.error || "Failed to upload file");
+            }
+            const uploadData = await uploadRes.json();
+            return uploadData.file;
+          }),
+        );
+        finalDocs = [...finalDocs, ...uploaded];
       }
 
-      // If user selected a new file, upload it
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
+      const updateData: any = {
+        ...editedProject,
+        projectDocuments: finalDocs,
+      };
 
-        const uploadRes = await fetch("/api/projects/upload-document", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          const uploadError = await uploadRes.json();
-          throw new Error(uploadError.error || "Failed to upload file");
-        }
-
-        const uploadData = await uploadRes.json();
-        projectDocumentData = uploadData.file;
-      }
-
-      // Update project with edited data and new/removed document
-      const updateData: any = { ...editedProject };
-      if (removeExistingFile) {
+      // Clear legacy single-doc field if it was removed
+      if (
+        project?.projectDocument &&
+        docUrlsToRemove.includes(project.projectDocument.url)
+      ) {
         updateData.projectDocument = null;
-      } else if (projectDocumentData) {
-        updateData.projectDocument = projectDocumentData;
       }
 
       const res = await fetch(`/api/projects/${id}`, {
@@ -193,15 +202,15 @@ export default function ProjectDetailPage({
           setProject(data.project);
           setIsEditing(false);
           setEditedProject({});
-          setSelectedFile(null);
-          setRemoveExistingFile(false);
+          setNewFiles([]);
+          setDocUrlsToRemove([]);
           setFileError("");
           // Redirect back to projects page
           router.push("/projects");
         }
       } else {
         const errorData = await res.json();
-        alert(errorData.error || "Failed to save project");
+        setFileError(errorData.error || "Failed to save project");
       }
     } catch (err: any) {
       console.error("Save error:", err);
@@ -209,15 +218,6 @@ export default function ProjectDetailPage({
       alert(err.message || "Failed to save project");
     } finally {
       setSaving(false);
-    }
-  };
-
-  // File selection handler
-  const handleFileSelect = (file: File | null) => {
-    setSelectedFile(file);
-    setFileError("");
-    if (file) {
-      setRemoveExistingFile(false);
     }
   };
 
@@ -522,123 +522,108 @@ export default function ProjectDetailPage({
         </Card>
       </div>
 
-      {/* Project Document Section */}
-      {(project.projectDocument || isEditing) && (
+      {/* Project Documents Section */}
+      {((project.projectDocuments?.length ?? 0) > 0 ||
+        !!project.projectDocument ||
+        isEditing) && (
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <CardTitle className="text-black flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Project Document
+              Project Documents
             </CardTitle>
           </CardHeader>
           <CardContent>
             {isEditing ? (
               <div className="space-y-4">
-                {/* Show existing file if present and not marked for removal */}
-                {project.projectDocument &&
-                  !removeExistingFile &&
-                  !selectedFile && (
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-blue-100 rounded-lg">
-                          <FileText className="h-6 w-6 text-blue-600" />
+                {/* List existing documents with individual remove/restore */}
+                {(() => {
+                  const existingDocs =
+                    (project.projectDocuments?.length ?? 0) > 0
+                      ? project.projectDocuments!
+                      : project.projectDocument
+                        ? [project.projectDocument]
+                        : [];
+                  return existingDocs.length > 0 ? (
+                    <div className="space-y-2">
+                      {existingDocs.map((doc) => (
+                        <div
+                          key={doc.url}
+                          className={`flex items-center gap-3 p-3 border rounded-lg ${
+                            docUrlsToRemove.includes(doc.url)
+                              ? "opacity-50 bg-red-50 border-red-200"
+                              : "bg-slate-50 border-slate-200"
+                          }`}
+                        >
+                          <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm font-medium truncate ${
+                                docUrlsToRemove.includes(doc.url)
+                                  ? "line-through text-slate-400"
+                                  : "text-slate-900"
+                              }`}
+                            >
+                              {doc.originalName}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {(doc.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant={
+                              docUrlsToRemove.includes(doc.url)
+                                ? "outline"
+                                : "destructive"
+                            }
+                            size="sm"
+                            onClick={() =>
+                              setDocUrlsToRemove((prev) =>
+                                prev.includes(doc.url)
+                                  ? prev.filter((u) => u !== doc.url)
+                                  : [...prev, doc.url],
+                              )
+                            }
+                          >
+                            {docUrlsToRemove.includes(doc.url)
+                              ? "Restore"
+                              : "Remove"}
+                          </Button>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {project.projectDocument.originalName}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {(
-                              project.projectDocument.size /
-                              1024 /
-                              1024
-                            ).toFixed(2)}{" "}
-                            MB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setRemoveExistingFile(true)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Remove
-                      </Button>
+                      ))}
                     </div>
-                  )}
+                  ) : null;
+                })()}
 
-                {/* Show newly selected file */}
-                {selectedFile && (
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-green-100 rounded-lg">
-                        <FileText className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          {selectedFile.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                          {" • "}New file ready to upload
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedFile(null)}
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-
-                {/* Upload new file button */}
-                {!selectedFile && (
-                  <div className="flex flex-col gap-2">
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileSelect(file);
-                        }}
-                        className="hidden"
-                      />
-                      <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                        <Upload className="h-5 w-5 text-slate-500" />
-                        <span className="text-sm text-slate-600">
-                          {removeExistingFile || !project.projectDocument
-                            ? "Click to upload document"
-                            : "Click to replace document"}
-                        </span>
-                      </div>
-                    </label>
-                    <p className="text-xs text-slate-500 text-center">
-                      PDF, DOC, DOCX, XLS, XLSX, TXT (Max 50MB)
-                    </p>
-                  </div>
-                )}
-
-                {fileError && (
-                  <p className="text-sm text-red-600">{fileError}</p>
-                )}
+                {/* Upload new files */}
+                <FileUploadSection
+                  multiple={true}
+                  selectedFiles={newFiles}
+                  onFilesSelect={setNewFiles}
+                  error={fileError}
+                  onErrorChange={setFileError}
+                  disabled={saving}
+                  label="Add More Documents"
+                  helpText="PDF, DOC, DOCX, XLS, XLSX, TXT — Max 50MB each"
+                />
               </div>
             ) : (
-              project.projectDocument && (
-                <>
-                  <FileDisplay document={project.projectDocument} />
-                  <p className="text-xs text-slate-500 mt-3">
-                    💡 This document contains project specifications and
-                    requirements. Team members can reference it while working on
-                    tasks.
-                  </p>
-                </>
-              )
+              <div className="space-y-3">
+                {((project.projectDocuments?.length ?? 0) > 0
+                  ? project.projectDocuments!
+                  : project.projectDocument
+                    ? [project.projectDocument]
+                    : []
+                ).map((doc) => (
+                  <FileDisplay key={doc.url} document={doc} />
+                ))}
+                <p className="text-xs text-slate-500 mt-1">
+                  💡 These documents contain project specifications and
+                  requirements. Team members can reference them while working on
+                  tasks.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -144,6 +144,20 @@ export const projectSchemas = {
         uploadedBy: z.string(),
       })
       .optional(),
+    projectDocuments: z
+      .array(
+        z.object({
+          filename: z.string(),
+          originalName: z.string(),
+          size: z.number(),
+          mimeType: z.string(),
+          url: z.string().url(),
+          publicId: z.string().optional(),
+          uploadedAt: z.string().or(z.date()),
+          uploadedBy: z.string(),
+        }),
+      )
+      .optional(),
   }),
 
   update: z.object({
@@ -166,6 +180,20 @@ export const projectSchemas = {
         uploadedAt: z.string().or(z.date()),
         uploadedBy: z.string(),
       })
+      .optional(),
+    projectDocuments: z
+      .array(
+        z.object({
+          filename: z.string(),
+          originalName: z.string(),
+          size: z.number(),
+          mimeType: z.string(),
+          url: z.string().url(),
+          publicId: z.string().optional(),
+          uploadedAt: z.string().or(z.date()),
+          uploadedBy: z.string(),
+        }),
+      )
       .optional(),
   }),
 };

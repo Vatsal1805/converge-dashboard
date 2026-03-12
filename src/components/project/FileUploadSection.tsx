@@ -1,19 +1,27 @@
 /**
  * Reusable File Upload Section Component
- * Supports drag-and-drop, file validation, and file preview
+ * Supports drag-and-drop, file validation, single and multiple file modes
  */
 
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, File, X, CheckCircle } from "lucide-react";
+import { Upload, X, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { validateFile, formatFileSize } from "@/lib/fileUtils";
 
 interface FileUploadSectionProps {
-  selectedFile: File | null;
-  onFileSelect: (file: File | null) => void;
+  // Single file mode (default)
+  selectedFile?: File | null;
+  onFileSelect?: (file: File | null) => void;
+
+  // Multiple files mode
+  multiple?: boolean;
+  selectedFiles?: File[];
+  onFilesSelect?: (files: File[]) => void;
+
+  // Shared props
   error?: string;
   onErrorChange?: (error: string) => void;
   disabled?: boolean;
@@ -24,6 +32,9 @@ interface FileUploadSectionProps {
 export function FileUploadSection({
   selectedFile,
   onFileSelect,
+  multiple = false,
+  selectedFiles = [],
+  onFilesSelect,
   error,
   onErrorChange,
   disabled = false,
@@ -33,24 +44,42 @@ export function FileUploadSection({
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileInput = (file: File | null) => {
-    if (!file) return;
+  const handleFileInput = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
 
-    const validation = validateFile(file);
-    if (!validation.isValid) {
-      if (onErrorChange) onErrorChange(validation.error || "");
-      return;
+    if (multiple) {
+      const newFiles: File[] = [];
+      for (const file of Array.from(files)) {
+        const validation = validateFile(file);
+        if (!validation.isValid) {
+          if (onErrorChange) onErrorChange(validation.error || "");
+          return;
+        }
+        newFiles.push(file);
+      }
+      if (onErrorChange) onErrorChange("");
+      if (onFilesSelect) {
+        // Deduplicate by file name to avoid re-adding the same file
+        const existingNames = new Set(selectedFiles.map((f) => f.name));
+        const unique = newFiles.filter((f) => !existingNames.has(f.name));
+        onFilesSelect([...selectedFiles, ...unique]);
+      }
+    } else {
+      const file = files[0];
+      const validation = validateFile(file);
+      if (!validation.isValid) {
+        if (onErrorChange) onErrorChange(validation.error || "");
+        return;
+      }
+      if (onErrorChange) onErrorChange("");
+      if (onFileSelect) onFileSelect(file);
     }
-
-    if (onErrorChange) onErrorChange("");
-    onFileSelect(file);
   };
 
   const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (disabled) return;
-
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -62,28 +91,31 @@ export function FileUploadSection({
     e.preventDefault();
     e.stopPropagation();
     if (disabled) return;
-
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileInput(e.dataTransfer.files[0]);
-    }
+    handleFileInput(e.dataTransfer.files);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (disabled) return;
+    handleFileInput(e.target.files);
+    // Reset so the same file can be re-selected after removal
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
-    if (e.target.files && e.target.files[0]) {
-      handleFileInput(e.target.files[0]);
+  const handleRemoveSingle = () => {
+    if (onFileSelect) onFileSelect(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveAt = (index: number) => {
+    if (onFilesSelect) {
+      onFilesSelect(selectedFiles.filter((_, i) => i !== index));
     }
   };
 
-  const handleRemove = () => {
-    onFileSelect(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
+  // In single mode, hide upload area once a file is selected
+  const showUploadArea = multiple || !selectedFile;
 
   return (
     <div className="space-y-3">
@@ -93,8 +125,8 @@ export function FileUploadSection({
         </label>
       )}
 
-      {/* File selected preview */}
-      {selectedFile && (
+      {/* Single mode — selected file preview */}
+      {!multiple && selectedFile && (
         <div className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 border-green-200">
           <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -109,7 +141,7 @@ export function FileUploadSection({
             type="button"
             size="sm"
             variant="outline"
-            onClick={handleRemove}
+            onClick={handleRemoveSingle}
             disabled={disabled}
             className="flex-shrink-0"
           >
@@ -118,8 +150,40 @@ export function FileUploadSection({
         </div>
       )}
 
+      {/* Multiple mode — list of selected files */}
+      {multiple && selectedFiles.length > 0 && (
+        <div className="space-y-2">
+          {selectedFiles.map((file, index) => (
+            <div
+              key={`${file.name}-${index}`}
+              className="flex items-center gap-3 p-3 border rounded-lg bg-green-50 border-green-200"
+            >
+              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-700 truncate">
+                  {file.name}
+                </p>
+                <p className="text-xs text-green-600">
+                  {formatFileSize(file.size)}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => handleRemoveAt(index)}
+                disabled={disabled}
+                className="flex-shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Upload area */}
-      {!selectedFile && (
+      {showUploadArea && (
         <div
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -140,11 +204,16 @@ export function FileUploadSection({
             accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
             onChange={handleChange}
             disabled={disabled}
+            multiple={multiple}
           />
           <Upload className="h-6 w-6 text-slate-400" />
           <div className="text-center">
             <p className="text-sm font-medium text-slate-700">
-              {dragActive ? "Drop file here" : "Choose file or drag & drop"}
+              {dragActive
+                ? "Drop file(s) here"
+                : multiple
+                  ? "Choose files or drag & drop"
+                  : "Choose file or drag & drop"}
             </p>
             {helpText && (
               <p className="text-xs text-slate-500 mt-1">{helpText}</p>

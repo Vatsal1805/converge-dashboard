@@ -20,7 +20,8 @@ export interface IProject extends Document {
   status: "planning" | "active" | "completed" | "on_hold";
   priority: "low" | "medium" | "high";
   budget?: number;
-  projectDocument?: IProjectDocument; // Project report/document
+  projectDocument?: IProjectDocument; // Backward compatibility: single document
+  projectDocuments: IProjectDocument[]; // Multiple project documents
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -54,6 +55,17 @@ const ProjectSchema = new Schema<IProject>(
       uploadedAt: { type: Date },
       uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
     },
+    projectDocuments: [
+      {
+        filename: { type: String },
+        originalName: { type: String },
+        size: { type: Number },
+        mimeType: { type: String },
+        url: { type: String },
+        uploadedAt: { type: Date },
+        uploadedBy: { type: Schema.Types.ObjectId, ref: "User" },
+      },
+    ],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   {

@@ -24,7 +24,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FileUploadSection } from "@/components/project/FileUploadSection";
-import { uploadFile } from "@/lib/fileUtils";
 // import { Calendar } from "@/components/ui/calendar" // Ensure calendar component exists or use native date input
 // import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
@@ -52,7 +51,7 @@ export default function CreateProjectPage() {
   const [interns, setInterns] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [error, setError] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState("");
 
   const [formData, setFormData] = useState({
@@ -113,10 +112,27 @@ export default function CreateProjectPage() {
     }
 
     try {
-      // Upload file if selected
-      let uploadedDocument = null;
-      if (selectedFile) {
-        uploadedDocument = await uploadFile(selectedFile);
+      // Upload all selected files in parallel
+      let uploadedDocuments: any[] = [];
+      if (selectedFiles.length > 0) {
+        setUploading(true);
+        uploadedDocuments = await Promise.all(
+          selectedFiles.map(async (file) => {
+            const form = new FormData();
+            form.append("file", file);
+            const res = await fetch("/api/projects/upload-document", {
+              method: "POST",
+              body: form,
+            });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || "Failed to upload file");
+            }
+            const data = await res.json();
+            return data.file;
+          }),
+        );
+        setUploading(false);
       }
 
       const res = await fetch("/api/projects/create", {
@@ -125,7 +141,8 @@ export default function CreateProjectPage() {
         body: JSON.stringify({
           ...formData,
           budget: Number(formData.budget),
-          projectDocument: uploadedDocument || undefined,
+          projectDocuments:
+            uploadedDocuments.length > 0 ? uploadedDocuments : undefined,
         }),
       });
 
@@ -144,8 +161,8 @@ export default function CreateProjectPage() {
   };
 
   // File selection handler
-  const handleFileSelect = (file: File | null) => {
-    setSelectedFile(file);
+  const handleFilesSelect = (files: File[]) => {
+    setSelectedFiles(files);
     setFileError("");
     setError("");
   };
@@ -234,15 +251,16 @@ export default function CreateProjectPage() {
               />
             </div>
 
-            {/* File Upload Section */}
+            {/* File Upload Section — multiple files */}
             <FileUploadSection
-              selectedFile={selectedFile}
-              onFileSelect={handleFileSelect}
+              multiple={true}
+              selectedFiles={selectedFiles}
+              onFilesSelect={handleFilesSelect}
               error={fileError}
               onErrorChange={setFileError}
-              disabled={loading}
-              label="Project Document (Optional)"
-              helpText="Upload project report or related documents for team reference"
+              disabled={loading || uploading}
+              label="Project Documents (Optional)"
+              helpText="Upload project reports or related documents for team reference (PDF, DOC, DOCX, XLS, XLSX, TXT — Max 50MB each)"
             />
 
             <div className="space-y-3">

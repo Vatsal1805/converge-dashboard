@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       ...data,
       members: data.members || [],
       projectDocument: data.projectDocument || undefined,
+      projectDocuments: data.projectDocuments || [],
       createdBy: (session as any).id,
     });
 
