@@ -66,6 +66,8 @@ ProjectSchema.index({ teamLeadIds: 1 });
 ProjectSchema.index({ members: 1 });
 ProjectSchema.index({ status: 1 });
 ProjectSchema.index({ createdAt: -1 }); // Optimized for latest project sorting
+ProjectSchema.index({ updatedAt: -1 }); // Optimized for change detection queries
+ProjectSchema.index({ status: 1, createdAt: -1 }); // Compound index for filtered + sorted queries
 
 // Backward compatibility: Handle old teamLeadId field during queries
 ProjectSchema.pre(["find", "findOne"], function () {

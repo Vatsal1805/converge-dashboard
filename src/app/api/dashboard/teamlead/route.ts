@@ -18,19 +18,44 @@ export async function GET(request: Request) {
 
     const userId = new Types.ObjectId(user.id);
 
-    const myProjects = await Project.find({ teamLeadIds: userId }).lean();
-    const projectIds = myProjects.map((p) => p._id);
+    // Use $lookup aggregation instead of multiple populates
+    const [myProjects, tasks] = await Promise.all([
+      Project.aggregate([
+        { $match: { teamLeadIds: userId } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "teamLeadIds",
+            foreignField: "_id",
+            pipeline: [{ $project: { name: 1, email: 1 } }],
+            as: "teamLeadIds",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "members",
+            foreignField: "_id",
+            pipeline: [{ $project: { name: 1, email: 1, department: 1 } }],
+            as: "members",
+          },
+        },
+      ]),
+      Task.find({
+        projectId: {
+          $in: await Project.find({ teamLeadIds: userId }).distinct("_id"),
+        },
+      })
+        .populate("assignedTo", "name email avatar")
+        .populate("projectId", "name")
+        .sort({ updatedAt: -1 })
+        .lean(),
+    ]);
 
-    const tasks = await Task.find({ projectId: { $in: projectIds } })
-      .populate("assignedTo", "name email avatar")
-      .populate("projectId", "name")
-      .sort({ updatedAt: -1 })
-      .lean();
-
-    const relevantProjectsCount = myProjects.filter((p) =>
+    const relevantProjectsCount = myProjects.filter((p: any) =>
       ["planning", "active"].includes(p.status),
     ).length;
-    const activeTasksCount = tasks.filter((t) =>
+    const activeTasksCount = tasks.filter((t: any) =>
       ["not_started", "in_progress", "working", "under_review"].includes(
         t.status,
       ),
@@ -40,7 +65,7 @@ export async function GET(request: Request) {
       projects: myProjects,
       tasks,
       stats: {
-        myActiveProjects: relevantProjectsCount, // Keeping name for compatibility or changing it
+        myActiveProjects: relevantProjectsCount,
         teamActiveTasks: activeTasksCount,
       },
     });

@@ -17,21 +17,26 @@ export async function GET(request: Request) {
 
     const userId = new Types.ObjectId(user.id);
 
-    // 1. Get tasks assigned to this intern
-    const tasks = await Task.find({ assignedTo: userId })
-      .populate("projectId", "name clientName")
-      .sort({ deadline: 1 })
-      .lean();
-
-    // 2. Get projects where intern is a member
-    const projects = await Project.find({ members: userId })
-      .populate("teamLeadIds", "name email")
-      .sort({ createdAt: -1 })
-      .lean();
-
-    // 3. Get intern stats
-    const [pendingTasksCount, completedTasksCount, userData] =
+    // Fetch all data in parallel using $lookup for projects
+    const [tasks, projects, pendingTasksCount, completedTasksCount, userData] =
       await Promise.all([
+        Task.find({ assignedTo: userId })
+          .populate("projectId", "name clientName")
+          .sort({ deadline: 1 })
+          .lean(),
+        Project.aggregate([
+          { $match: { members: userId } },
+          { $sort: { createdAt: -1 } },
+          {
+            $lookup: {
+              from: "users",
+              localField: "teamLeadIds",
+              foreignField: "_id",
+              pipeline: [{ $project: { name: 1, email: 1 } }],
+              as: "teamLeadIds",
+            },
+          },
+        ]),
         Task.countDocuments({
           assignedTo: userId,
           status: { $in: ["not_started", "in_progress", "working"] },

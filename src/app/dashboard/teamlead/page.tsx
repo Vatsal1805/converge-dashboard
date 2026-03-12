@@ -35,12 +35,29 @@ async function getTeamLeadData(token: string) {
 
     const userId = new Types.ObjectId((session as any).id);
 
-    const myProjects = await Project.find({ teamLeadIds: userId })
-      .populate("teamLeadIds", "name email")
-      .populate("members", "name email department")
-      .lean();
+    const myProjects = await Project.aggregate([
+      { $match: { teamLeadIds: userId } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "teamLeadIds",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1 } }],
+          as: "teamLeadIds",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1, department: 1 } }],
+          as: "members",
+        },
+      },
+    ]);
 
-    const projectIds = myProjects.map((p) => p._id);
+    const projectIds = myProjects.map((p: any) => p._id);
 
     // Get all tasks under these projects
     const tasks = await Task.find({ projectId: { $in: projectIds } })

@@ -1,8 +1,8 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-// Import the models index to ensure all schemas are registered with Mongoose 
+// Import the models index to ensure all schemas are registered with Mongoose
 // before any database operations occur. This is CRITICAL for Vercel cold starts.
-import * as Models from '@/models/index';
+import * as Models from "@/models/index";
 
 // We export the models from here as well for convenience, ensuring they are initialized
 export { Models };
@@ -10,7 +10,9 @@ export { Models };
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
-    throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error(
+    "Please define the MONGODB_URI environment variable inside .env.local",
+  );
 }
 
 /**
@@ -19,47 +21,47 @@ if (!MONGODB_URI) {
  * during API Route usage.
  */
 interface MongooseCache {
-    conn: typeof mongoose | null;
-    promise: Promise<typeof mongoose> | null;
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
 }
 
 declare global {
-    var mongoose: MongooseCache | undefined;
+  var mongoose: MongooseCache | undefined;
 }
 
 let cached = global.mongoose;
 
 if (!cached) {
-    cached = global.mongoose = { conn: null, promise: null };
+  cached = global.mongoose = { conn: null, promise: null };
 }
 
 async function connectToDatabase() {
-    if (cached!.conn) {
-        return cached!.conn;
-    }
-
-    if (!cached!.promise) {
-        const opts = {
-            bufferCommands: false,
-            maxPoolSize: 10,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
-            family: 4,
-        };
-
-        cached!.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-            return mongoose;
-        });
-    }
-
-    try {
-        cached!.conn = await cached!.promise;
-    } catch (e) {
-        cached!.promise = null;
-        throw e;
-    }
-
+  if (cached!.conn) {
     return cached!.conn;
+  }
+
+  if (!cached!.promise) {
+    const opts = {
+      bufferCommands: false,
+      maxPoolSize: 50,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      family: 4,
+    };
+
+    cached!.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
+      return mongoose;
+    });
+  }
+
+  try {
+    cached!.conn = await cached!.promise;
+  } catch (e) {
+    cached!.promise = null;
+    throw e;
+  }
+
+  return cached!.conn;
 }
 
 export default connectToDatabase;

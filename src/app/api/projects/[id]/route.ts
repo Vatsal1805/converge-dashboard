@@ -5,6 +5,7 @@ import Project from "@/models/Project";
 import User from "@/models/User";
 import { inAppNotifications } from "@/lib/notifications";
 import { deleteFromCloudinary } from "@/lib/fileStorage";
+import mongoose from "mongoose";
 
 export async function GET(
   request: Request,
@@ -19,10 +20,31 @@ export async function GET(
     }
 
     await connectToDatabase();
-    const project = await Project.findById(id)
-      .populate("teamLeadIds", "name email")
-      .populate("members", "name email department")
-      .lean();
+
+    // Use $lookup aggregation instead of multiple populate calls (1 query vs 3)
+    const results = await Project.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "teamLeadIds",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1 } }],
+          as: "teamLeadIds",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1, department: 1 } }],
+          as: "members",
+        },
+      },
+    ]);
+
+    const project = results[0] || null;
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });

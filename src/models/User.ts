@@ -47,6 +47,11 @@ const UserSchema = new Schema<IUser>(
   },
 );
 
+// Indexes for performance
+UserSchema.index({ role: 1 });
+UserSchema.index({ status: 1 });
+UserSchema.index({ role: 1, status: 1 });
+
 // Prevent model overwrite in hot reload
 const User: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>("User", UserSchema);

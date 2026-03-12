@@ -21,6 +21,7 @@ import connectToDatabase from "@/lib/db";
 import Task from "@/models/Task";
 import Project from "@/models/Project";
 import { verifyToken } from "@/lib/auth";
+import mongoose from "mongoose";
 
 async function getInternData(token: string) {
   try {
@@ -38,7 +39,7 @@ async function getInternData(token: string) {
 
     await connectToDatabase();
 
-    const userId = (session as any).id;
+    const userId = new mongoose.Types.ObjectId((session as any).id);
 
     // Fetch tasks assigned to this intern
     const tasks = await Task.find({ assignedTo: userId })
@@ -46,11 +47,20 @@ async function getInternData(token: string) {
       .sort({ deadline: 1 })
       .lean();
 
-    // Fetch projects where this intern is a member
-    const projects = await Project.find({ members: userId })
-      .populate("teamLeadIds", "name email")
-      .sort({ createdAt: -1 })
-      .lean();
+    // Fetch projects where this intern is a member using $lookup
+    const projects = await Project.aggregate([
+      { $match: { members: userId } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "teamLeadIds",
+          foreignField: "_id",
+          pipeline: [{ $project: { name: 1, email: 1 } }],
+          as: "teamLeadIds",
+        },
+      },
+    ]);
 
     // Calculate stats
     const pendingTasks = tasks.filter((t: any) =>

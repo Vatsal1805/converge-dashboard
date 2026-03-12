@@ -25,6 +25,7 @@ import Project from "@/models/Project";
 import Task from "@/models/Task";
 import Lead from "@/models/Lead";
 import { verifyToken } from "@/lib/auth";
+import mongoose from "mongoose";
 
 async function getStats(token: string) {
   try {
@@ -44,7 +45,7 @@ async function getStats(token: string) {
 
     await connectToDatabase();
 
-    // FETCH DATA IN PARALLEL
+    // FETCH DATA IN PARALLEL with $lookup aggregation
     const [totalUsers, totalProjects, activeTasks, wonLeads, projects] =
       await Promise.all([
         User.countDocuments(),
@@ -55,12 +56,28 @@ async function getStats(token: string) {
           },
         }),
         Lead.find({ status: "won" }).lean(),
-        Project.find()
-          .populate("teamLeadIds", "name email")
-          .populate("members", "name email")
-          .sort({ createdAt: -1 })
-          .limit(5)
-          .lean(),
+        Project.aggregate([
+          { $sort: { createdAt: -1 } },
+          { $limit: 5 },
+          {
+            $lookup: {
+              from: "users",
+              localField: "teamLeadIds",
+              foreignField: "_id",
+              pipeline: [{ $project: { name: 1, email: 1 } }],
+              as: "teamLeadIds",
+            },
+          },
+          {
+            $lookup: {
+              from: "users",
+              localField: "members",
+              foreignField: "_id",
+              pipeline: [{ $project: { name: 1, email: 1 } }],
+              as: "members",
+            },
+          },
+        ]),
       ]);
 
     const revenue = wonLeads.reduce(

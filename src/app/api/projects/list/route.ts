@@ -3,8 +3,8 @@ import { getUserFromRequest } from "@/lib/auth";
 import connectToDatabase from "@/lib/db";
 import Project from "@/models/Project";
 import { Types } from "mongoose";
-import { rateLimit, rateLimitResponse } from '@/lib/rateLimit';
-import { UnauthorizedError, handleAPIError } from '@/lib/errors';
+import { rateLimit, rateLimitResponse } from "@/lib/rateLimit";
+import { UnauthorizedError, handleAPIError } from "@/lib/errors";
 
 export async function GET(request: Request) {
   try {
@@ -27,32 +27,31 @@ export async function GET(request: Request) {
     await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(searchParams.get("limit") || "20")),
+    );
     const skip = (page - 1) * limit;
 
     const role = (session as any).role;
     const userId = new Types.ObjectId((session as any).id);
     const scope = searchParams.get("scope");
 
-    let query: any = {};
+    let matchStage: any = {};
 
     if (scope === "me") {
       if (role === "teamlead") {
-        query = { teamLeadIds: userId };
+        matchStage = { teamLeadIds: userId };
       } else if (role === "intern") {
-        // Interns usually don't have "their" projects, but we can return nothing
-        // or just assignments if we add a field later. For now, we follow current logic.
-        query = { _id: { $exists: false } };
+        matchStage = { _id: { $exists: false } };
       }
-    } else {
-      // Global view (default) - accessible by all logged in users
     }
 
     const since = searchParams.get("since");
 
     // Check for latest modification in the results
-    const latestUpdate = await Project.findOne(query)
+    const latestUpdate = await Project.findOne(matchStage)
       .sort({ updatedAt: -1 })
       .select("updatedAt")
       .lean();
@@ -69,22 +68,36 @@ export async function GET(request: Request) {
       });
     }
 
-    const [projects, total] = await Promise.all([
-      Project.find(query)
-        .populate({
-          path: "teamLeadIds",
-          select: "name email",
-        })
-        .populate({
-          path: "members",
-          select: "name email department",
-        })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Project.countDocuments(query),
+    // Use $lookup aggregation with server-side pagination
+    const [projects, countResult] = await Promise.all([
+      Project.aggregate([
+        { $match: matchStage },
+        { $sort: { createdAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: "users",
+            localField: "teamLeadIds",
+            foreignField: "_id",
+            pipeline: [{ $project: { name: 1, email: 1 } }],
+            as: "teamLeadIds",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "members",
+            foreignField: "_id",
+            pipeline: [{ $project: { name: 1, email: 1, department: 1 } }],
+            as: "members",
+          },
+        },
+      ]),
+      Project.countDocuments(matchStage),
     ]);
+
+    const total = countResult;
 
     return NextResponse.json({
       projects,
