@@ -38,10 +38,15 @@ yarn-error.log*
 /backups
 *.backup
 
-# local development seed scripts (not original repo files)
+# local development seed scripts (contain hardcoded credentials - never commit)
+/scripts/seed-founder.ts
 /scripts/seed-interns.ts
 /scripts/seed-teamleads.ts
 /scripts/seed-teams.ts
+/scripts/seed.js
+/scripts/seed.mjs
+/scripts/migrate-teamlead-field.ts
+/scripts/backup.js
 
 # documentation folders (shared with team separately)
 /doc
